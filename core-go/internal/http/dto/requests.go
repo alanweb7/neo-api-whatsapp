@@ -56,13 +56,15 @@ type SendMediaRequest struct {
 }
 
 type ButtonItem struct {
-	ID    string `json:"id" binding:"required,min=1,max=128"`
-	Title string `json:"title" binding:"required,min=1,max=40"`
+	Type        string `json:"type" binding:"required,oneof=quick_reply"`
+	DisplayText string `json:"displayText" binding:"required,min=1,max=40"`
+	ID          string `json:"id" binding:"required,min=1,max=128"`
 }
 
 type SendButtonsRequest struct {
 	SessionID    string       `json:"session_id" binding:"required,uuid"`
-	To           string       `json:"to" binding:"required"`
+	JID          string       `json:"jid"`
+	To           string       `json:"to"`
 	Text         string       `json:"text" binding:"required,min=1,max=1024"`
 	Footer       string       `json:"footer"`
 	Buttons      []ButtonItem `json:"buttons" binding:"required,min=1,max=3,dive"`

@@ -40,7 +40,7 @@
 {
   "session_id": "<SESSION_UUID>",
   "to": "5511999999999",
-  "text": "Olá!"
+  "text": "Ola!"
 }
 ```
 
@@ -55,19 +55,18 @@
 }
 ```
 
-### Botões Interativos
+### Botoes Interativos (quick_reply)
 `POST /api/v1/messages/buttons`
 ```json
 {
   "session_id": "<SESSION_UUID>",
-  "to": "5511999999999",
-  "text": "Escolha uma opção:",
-  "footer": "Atendimento",
+  "jid": "5511999999999@s.whatsapp.net",
+  "text": "Escolha uma opcao:",
+  "footer": "Atendimento automatico",
   "buttons": [
-    { "id": "financeiro", "title": "Financeiro" },
-    { "id": "suporte", "title": "Suporte" },
-    { "id": "comercial", "title": "Comercial" }
-  ],
-  "fallback_text": "Escolha uma opção:\n1 - Financeiro\n2 - Suporte\n3 - Comercial"
+    { "type": "quick_reply", "displayText": "Fazer Pedido", "id": "vendas" },
+    { "type": "quick_reply", "displayText": "Suporte Tecnico", "id": "suporte" },
+    { "type": "quick_reply", "displayText": "Financeiro", "id": "financeiro" }
+  ]
 }
 ```

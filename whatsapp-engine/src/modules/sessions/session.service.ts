@@ -6,11 +6,17 @@ const createSchema = z.object({ tenant_id: z.string().uuid(), name: z.string().m
 const sendTextSchema = z.object({ to: z.string().min(8), text: z.string().min(1) });
 const sendMediaSchema = z.object({ to: z.string().min(8), media_url: z.string().url(), caption: z.string().optional(), file_name: z.string().optional() });
 const sendButtonsSchema = z.object({
-  to: z.string().min(8),
+  jid: z.string().min(8),
   text: z.string().min(1).max(1024),
   footer: z.string().max(60).optional(),
   fallback_text: z.string().max(1024).optional(),
-  buttons: z.array(z.object({ id: z.string().min(1).max(128), title: z.string().min(1).max(40) })).min(1).max(3)
+  buttons: z.array(
+    z.object({
+      type: z.literal("quick_reply"),
+      displayText: z.string().min(1).max(40),
+      id: z.string().min(1).max(128)
+    })
+  ).min(1).max(3)
 });
 
 export class SessionService {
@@ -70,7 +76,7 @@ export class SessionService {
     return this.adapter.sendAudio(sessionId, parsed);
   }
 
-  async sendButtons(sessionId: string, payload: unknown): Promise<{ message_id: string; mode: "buttons" | "fallback_text" }> {
+  async sendButtons(sessionId: string, payload: unknown): Promise<{ message_id: string; mode: "template_buttons" | "buttons" | "fallback_text" }> {
     const parsed = sendButtonsSchema.parse(payload) as SendButtonsPayload;
     return this.adapter.sendButtons(sessionId, parsed);
   }

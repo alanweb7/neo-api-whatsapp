@@ -47,9 +47,17 @@ func (h *MessageController) SendButtons(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	target := req.JID
+	if target == "" {
+		target = req.To
+	}
+	if target == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "jid or to is required"})
+		return
+	}
 	sid, _ := uuid.Parse(req.SessionID)
 	payload := map[string]any{
-		"to":            req.To,
+		"jid":           target,
 		"text":          req.Text,
 		"footer":        req.Footer,
 		"buttons":       req.Buttons,

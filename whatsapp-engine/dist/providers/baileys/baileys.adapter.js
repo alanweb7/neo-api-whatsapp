@@ -135,26 +135,47 @@ export class BaileysAdapter {
     }
     async sendButtons(sessionId, payload) {
         const s = this.mustConnected(sessionId);
-        const jid = this.toJid(payload.to);
-        const buttons = payload.buttons.map((b) => ({
+        const jid = this.normalizeJid(payload.jid);
+        const legacyButtons = payload.buttons.map((b) => ({
             buttonId: b.id,
-            buttonText: { displayText: b.title },
+            buttonText: { displayText: b.displayText },
             type: 1
         }));
+        const templateButtons = payload.buttons.map((b, idx) => ({
+            index: idx + 1,
+            quickReplyButton: {
+                displayText: b.displayText,
+                id: b.id
+            }
+        }));
+        try {
+            const templatePayload = {
+                text: payload.text,
+                footer: payload.footer,
+                templateButtons
+            };
+            const templateRes = await s.socket.sendMessage(jid, templatePayload);
+            const templateMessageId = this.extractMessageId(templateRes);
+            await this.publish("message.sent", s.tenantId, s.sessionId, { id: templateMessageId, to: jid, type: "template_buttons" });
+            return { message_id: templateMessageId, mode: "template_buttons" };
+        }
+        catch (templateErr) {
+            logger.warn({ err: templateErr, sessionId, jid }, "template quick reply failed, trying legacy buttons");
+        }
         try {
             const interactivePayload = {
                 text: payload.text,
                 footer: payload.footer,
-                buttons,
+                buttons: legacyButtons,
                 headerType: 1
             };
             const res = await s.socket.sendMessage(jid, interactivePayload);
             const messageId = this.extractMessageId(res);
-            await this.publish("message.sent", s.tenantId, s.sessionId, { id: messageId, to: payload.to, type: "buttons" });
+            await this.publish("message.sent", s.tenantId, s.sessionId, { id: messageId, to: jid, type: "buttons" });
             return { message_id: messageId, mode: "buttons" };
         }
         catch (err) {
-            logger.warn({ err, sessionId, to: payload.to }, "interactive buttons not supported, sending fallback text");
+            logger.warn({ err, sessionId, jid }, "interactive buttons not supported, sending fallback text");
             const fallbackText = payload.fallback_text ?? this.buildButtonsFallbackText(payload.text, payload.buttons);
             const fallbackRes = await s.socket.sendMessage(jid, { text: fallbackText });
             const fallbackId = this.extractMessageId(fallbackRes);
@@ -164,7 +185,7 @@ export class BaileysAdapter {
             });
             await this.publish("message.sent", s.tenantId, s.sessionId, {
                 id: fallbackId,
-                to: payload.to,
+                to: jid,
                 type: "text_fallback",
                 original_type: "buttons"
             });
@@ -201,6 +222,11 @@ export class BaileysAdapter {
         const normalized = raw.replace(/\D/g, "");
         return `${normalized}@s.whatsapp.net`;
     }
+    normalizeJid(raw) {
+        if (raw.includes("@"))
+            return raw;
+        return this.toJid(raw);
+    }
     async persistStatus(session, status) {
         const records = await this.store.list();
         const found = records.find((r) => r.sessionId === session.sessionId);
@@ -215,7 +241,7 @@ export class BaileysAdapter {
         return id ?? "unknown";
     }
     buildButtonsFallbackText(text, buttons) {
-        const options = buttons.map((b, idx) => `${idx + 1} - ${b.title}`).join("\n");
+        const options = buttons.map((b, idx) => `${idx + 1} - ${b.displayText}`).join("\n");
         return `${text}\n\n${options}`;
     }
     async publish(type, tenantId, sessionId, payload) {

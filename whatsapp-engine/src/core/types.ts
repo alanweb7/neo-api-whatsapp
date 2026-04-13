@@ -40,12 +40,13 @@ export type SendMediaPayload = {
 };
 
 export type InteractiveButton = {
+  type: "quick_reply";
+  displayText: string;
   id: string;
-  title: string;
 };
 
 export type SendButtonsPayload = {
-  to: string;
+  jid: string;
   text: string;
   footer?: string;
   buttons: InteractiveButton[];
