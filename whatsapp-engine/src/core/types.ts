@@ -40,9 +40,12 @@ export type SendMediaPayload = {
 };
 
 export type InteractiveButton = {
-  type: "quick_reply";
+  type: "quick_reply" | "cta_url" | "cta_call" | "cta_copy";
   displayText: string;
   id: string;
+  url?: string;
+  phoneNumber?: string;
+  copyCode?: string;
 };
 
 export type SendButtonsPayload = {

@@ -12,11 +12,23 @@ const sendButtonsSchema = z.object({
   fallback_text: z.string().max(1024).optional(),
   buttons: z.array(
     z.object({
-      type: z.literal("quick_reply"),
+      type: z.enum(["quick_reply", "cta_url", "cta_call", "cta_copy"]),
       displayText: z.string().min(1).max(40),
-      id: z.string().min(1).max(128)
+      id: z.string().min(1).max(128),
+      url: z.string().url().optional(),
+      phoneNumber: z.string().min(3).max(32).optional(),
+      copyCode: z.string().min(1).max(500).optional()
     })
   ).min(1).max(3)
+}).superRefine((payload, ctx) => {
+  const hasQuickReply = payload.buttons.some((b) => b.type === "quick_reply");
+  const hasCTA = payload.buttons.some((b) => b.type !== "quick_reply");
+  if (hasQuickReply && hasCTA) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Do not mix quick_reply with CTA button types in the same payload."
+    });
+  }
 });
 
 export class SessionService {
@@ -76,7 +88,7 @@ export class SessionService {
     return this.adapter.sendAudio(sessionId, parsed);
   }
 
-  async sendButtons(sessionId: string, payload: unknown): Promise<{ message_id: string; mode: "template_buttons" | "buttons" | "fallback_text" }> {
+  async sendButtons(sessionId: string, payload: unknown): Promise<{ message_id: string; mode: "native_flow" | "fallback_text" }> {
     const parsed = sendButtonsSchema.parse(payload) as SendButtonsPayload;
     return this.adapter.sendButtons(sessionId, parsed);
   }

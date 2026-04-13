@@ -1,6 +1,7 @@
 import makeWASocket, {
   DisconnectReason,
   fetchLatestBaileysVersion,
+  generateWAMessageFromContent,
   useMultiFileAuthState,
   type WASocket
 } from "@whiskeysockets/baileys";
@@ -169,55 +170,82 @@ export class BaileysAdapter {
     return { message_id: messageId };
   }
 
-  async sendButtons(sessionId: string, payload: SendButtonsPayload): Promise<{ message_id: string; mode: "template_buttons" | "buttons" | "fallback_text" }> {
+  async sendButtons(sessionId: string, payload: SendButtonsPayload): Promise<{ message_id: string; mode: "native_flow" | "fallback_text" }> {
     const s = this.mustConnected(sessionId);
     const jid = this.normalizeJid(payload.jid);
-    const legacyButtons = payload.buttons.map((b) => ({
-      buttonId: b.id,
-      buttonText: { displayText: b.displayText },
-      type: 1
-    }));
-    const templateButtons = payload.buttons.map((b, idx) => ({
-      index: idx + 1,
-      quickReplyButton: {
-        displayText: b.displayText,
-        id: b.id
+
+    try {
+      const nativeFlowButtons = payload.buttons.map((btn) => {
+        if (btn.type === "cta_url") {
+          return {
+            name: "cta_url",
+            buttonParamsJson: JSON.stringify({
+              display_text: btn.displayText,
+              url: btn.url ?? "",
+              merchant_url: btn.url ?? ""
+            })
+          };
+        }
+        if (btn.type === "cta_call") {
+          return {
+            name: "cta_call",
+            buttonParamsJson: JSON.stringify({
+              display_text: btn.displayText,
+              phone_number: btn.phoneNumber ?? btn.id
+            })
+          };
+        }
+        if (btn.type === "cta_copy") {
+          return {
+            name: "cta_copy",
+            buttonParamsJson: JSON.stringify({
+              display_text: btn.displayText,
+              copy_code: btn.copyCode ?? btn.id
+            })
+          };
+        }
+        return {
+          name: "quick_reply",
+          buttonParamsJson: JSON.stringify({
+            display_text: btn.displayText,
+            id: btn.id
+          })
+        };
+      });
+
+      const interactiveMessage: any = {
+        body: { text: payload.text || " " },
+        nativeFlowMessage: {
+          buttons: nativeFlowButtons,
+          messageVersion: 1
+        }
+      };
+      if (payload.footer) {
+        interactiveMessage.footer = { text: payload.footer };
       }
-    }));
+      const userJid = s.socket.user?.id;
+      if (!userJid) {
+        throw new Error("socket user not available");
+      }
 
-    try {
-      const templatePayload: any = {
-        text: payload.text,
-        footer: payload.footer,
-        templateButtons
-      };
-      const templateRes = await s.socket.sendMessage(jid, templatePayload);
-      const templateMessageId = this.extractMessageId(templateRes);
-      await this.publish("message.sent", s.tenantId, s.sessionId, { id: templateMessageId, to: jid, type: "template_buttons" });
-      return { message_id: templateMessageId, mode: "template_buttons" };
-    } catch (templateErr) {
-      logger.warn({ err: templateErr, sessionId, jid }, "template quick reply failed, trying legacy buttons");
-    }
+      const waMessage = generateWAMessageFromContent(
+        jid,
+        { interactiveMessage } as any,
+        { userJid }
+      );
+      await s.socket.relayMessage(jid, waMessage.message as any, { messageId: waMessage.key.id ?? undefined });
 
-    try {
-      const interactivePayload: any = {
-        text: payload.text,
-        footer: payload.footer,
-        buttons: legacyButtons,
-        headerType: 1
-      };
-      const res = await s.socket.sendMessage(jid, interactivePayload);
-      const messageId = this.extractMessageId(res);
-      await this.publish("message.sent", s.tenantId, s.sessionId, { id: messageId, to: jid, type: "buttons" });
-      return { message_id: messageId, mode: "buttons" };
+      const messageId = waMessage.key.id ?? "unknown";
+      await this.publish("message.sent", s.tenantId, s.sessionId, { id: messageId, to: jid, type: "buttons_native_flow" });
+      return { message_id: messageId, mode: "native_flow" };
     } catch (err) {
-      logger.warn({ err, sessionId, jid }, "interactive buttons not supported, sending fallback text");
+      logger.warn({ err, sessionId, jid }, "native flow buttons failed, sending fallback text");
       const fallbackText = payload.fallback_text ?? this.buildButtonsFallbackText(payload.text, payload.buttons);
       const fallbackRes = await s.socket.sendMessage(jid, { text: fallbackText });
       const fallbackId = this.extractMessageId(fallbackRes);
       await this.publish("engine.error", s.tenantId, s.sessionId, {
-        category: "interactive_buttons_unsupported",
-        message: "buttons payload failed; fallback text sent"
+        category: "interactive_native_flow_failed",
+        message: "native flow buttons failed; fallback text sent"
       });
       await this.publish("message.sent", s.tenantId, s.sessionId, {
         id: fallbackId,
