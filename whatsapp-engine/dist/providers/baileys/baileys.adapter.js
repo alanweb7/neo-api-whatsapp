@@ -1,4 +1,4 @@
-import makeWASocket, { DisconnectReason, fetchLatestBaileysVersion, generateWAMessageFromContent, useMultiFileAuthState } from "@whiskeysockets/baileys";
+import makeWASocket, { DisconnectReason, fetchLatestBaileysVersion, generateWAMessageFromContent, proto, useMultiFileAuthState } from "@whiskeysockets/baileys";
 import { logger } from "../../config/logger.js";
 export class BaileysAdapter {
     eventBus;
@@ -188,7 +188,17 @@ export class BaileysAdapter {
             if (!userJid) {
                 throw new Error("socket user not available");
             }
-            const waMessage = generateWAMessageFromContent(jid, { interactiveMessage }, { userJid });
+            const waMessage = generateWAMessageFromContent(jid, {
+                viewOnceMessage: {
+                    message: {
+                        messageContextInfo: {
+                            deviceListMetadata: {},
+                            deviceListMetadataVersion: 2
+                        },
+                        interactiveMessage: proto.Message.InteractiveMessage.create(interactiveMessage)
+                    }
+                }
+            }, { userJid });
             await s.socket.relayMessage(jid, waMessage.message, { messageId: waMessage.key.id ?? undefined });
             const messageId = waMessage.key.id ?? "unknown";
             await this.publish("message.sent", s.tenantId, s.sessionId, { id: messageId, to: jid, type: "buttons_native_flow" });

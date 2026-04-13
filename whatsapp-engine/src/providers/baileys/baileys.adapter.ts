@@ -2,6 +2,7 @@ import makeWASocket, {
   DisconnectReason,
   fetchLatestBaileysVersion,
   generateWAMessageFromContent,
+  proto,
   useMultiFileAuthState,
   type WASocket
 } from "@whiskeysockets/baileys";
@@ -230,7 +231,17 @@ export class BaileysAdapter {
 
       const waMessage = generateWAMessageFromContent(
         jid,
-        { interactiveMessage } as any,
+        {
+          viewOnceMessage: {
+            message: {
+              messageContextInfo: {
+                deviceListMetadata: {},
+                deviceListMetadataVersion: 2
+              },
+              interactiveMessage: proto.Message.InteractiveMessage.create(interactiveMessage)
+            }
+          }
+        } as any,
         { userJid }
       );
       await s.socket.relayMessage(jid, waMessage.message as any, { messageId: waMessage.key.id ?? undefined });
