@@ -1,0 +1,69 @@
+import { z } from "zod";
+import type { SendMediaPayload, SendTextPayload } from "../../core/types.js";
+import { BaileysAdapter } from "../../providers/baileys/baileys.adapter.js";
+
+const createSchema = z.object({ tenant_id: z.string().uuid(), name: z.string().min(2).max(120) });
+const sendTextSchema = z.object({ to: z.string().min(8), text: z.string().min(1) });
+const sendMediaSchema = z.object({ to: z.string().min(8), media_url: z.string().url(), caption: z.string().optional(), file_name: z.string().optional() });
+
+export class SessionService {
+  constructor(private readonly adapter: BaileysAdapter) {}
+
+  async create(payload: unknown): Promise<{ session_id: string; status: string; qr_code?: string }> {
+    const input = createSchema.parse(payload);
+    const session = await this.adapter.createSession(input.tenant_id, input.name);
+    return { session_id: session.sessionId, status: session.status, qr_code: session.qrCode };
+  }
+
+  async start(sessionId: string): Promise<{ session_id: string; status: string }> {
+    const session = await this.adapter.startSession(sessionId);
+    return { session_id: session.sessionId, status: session.status };
+  }
+
+  async status(sessionId: string): Promise<{ status: string; qr_code?: string }> {
+    return this.adapter.getStatus(sessionId);
+  }
+
+  async qr(sessionId: string): Promise<{ qr_code?: string; status: string }> {
+    return this.adapter.getStatus(sessionId);
+  }
+
+  async reconnect(sessionId: string): Promise<{ reconnecting: boolean }> {
+    await this.adapter.startSession(sessionId);
+    return { reconnecting: true };
+  }
+
+  async disconnect(sessionId: string): Promise<{ disconnected: boolean }> {
+    await this.adapter.disconnect(sessionId);
+    return { disconnected: true };
+  }
+
+  async remove(sessionId: string): Promise<{ removed: boolean }> {
+    await this.adapter.remove(sessionId);
+    return { removed: true };
+  }
+
+  async sendText(sessionId: string, payload: unknown): Promise<{ message_id: string }> {
+    const parsed = sendTextSchema.parse(payload) as SendTextPayload;
+    return this.adapter.sendText(sessionId, parsed);
+  }
+
+  async sendImage(sessionId: string, payload: unknown): Promise<{ message_id: string }> {
+    const parsed = sendMediaSchema.parse(payload) as SendMediaPayload;
+    return this.adapter.sendImage(sessionId, parsed);
+  }
+
+  async sendDocument(sessionId: string, payload: unknown): Promise<{ message_id: string }> {
+    const parsed = sendMediaSchema.parse(payload) as SendMediaPayload;
+    return this.adapter.sendDocument(sessionId, parsed);
+  }
+
+  async sendAudio(sessionId: string, payload: unknown): Promise<{ message_id: string }> {
+    const parsed = sendMediaSchema.parse(payload) as SendMediaPayload;
+    return this.adapter.sendAudio(sessionId, parsed);
+  }
+
+  async bootstrap(): Promise<void> {
+    await this.adapter.bootstrap();
+  }
+}
