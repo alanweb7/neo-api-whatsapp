@@ -38,4 +38,7 @@ export class InternalSessionController {
     sendAudio = async (req, reply) => {
         reply.send(await this.service.sendAudio(req.params.sessionId, req.body));
     };
+    sendButtons = async (req, reply) => {
+        reply.send(await this.service.sendButtons(req.params.sessionId, req.body));
+    };
 }

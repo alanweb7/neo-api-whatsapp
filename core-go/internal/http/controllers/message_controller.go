@@ -37,6 +37,31 @@ func (h *MessageController) SendText(c *gin.Context) {
 func (h *MessageController) SendImage(c *gin.Context)    { h.sendMedia(c, "image") }
 func (h *MessageController) SendDocument(c *gin.Context) { h.sendMedia(c, "document") }
 func (h *MessageController) SendAudio(c *gin.Context)    { h.sendMedia(c, "audio") }
+func (h *MessageController) SendButtons(c *gin.Context) {
+	tenantID, ok := tenantIDFromCtx(c)
+	if !ok {
+		return
+	}
+	var req dto.SendButtonsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	sid, _ := uuid.Parse(req.SessionID)
+	payload := map[string]any{
+		"to":            req.To,
+		"text":          req.Text,
+		"footer":        req.Footer,
+		"buttons":       req.Buttons,
+		"fallback_text": req.FallbackText,
+	}
+	out, err := h.service.SendButtons(c.Request.Context(), tenantID, sid, payload)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, out)
+}
 
 func (h *MessageController) sendMedia(c *gin.Context, t string) {
 	tenantID, ok := tenantIDFromCtx(c)

@@ -51,6 +51,14 @@ paths:
       responses:
         '200':
           description: sent
+  /api/v1/messages/buttons:
+    post:
+      summary: Send interactive buttons message
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: sent
 components:
   securitySchemes:
     bearerAuth:

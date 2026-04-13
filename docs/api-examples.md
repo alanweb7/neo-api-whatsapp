@@ -1,4 +1,4 @@
-# Exemplos de API
+﻿# Exemplos de API
 
 ## Auth
 ### Login
@@ -21,13 +21,13 @@
 ```
 
 ## Sessions
-### Criar sess�o
+### Criar sessão
 `POST /api/v1/sessions`
 ```json
 { "name": "Atendimento 01" }
 ```
 
-### Iniciar sess�o
+### Iniciar sessão
 `POST /api/v1/sessions/{sessionId}/start`
 
 ### Buscar QR
@@ -40,7 +40,7 @@
 {
   "session_id": "<SESSION_UUID>",
   "to": "5511999999999",
-  "text": "Ol�!"
+  "text": "Olá!"
 }
 ```
 
@@ -52,5 +52,22 @@
   "to": "5511999999999",
   "media_url": "https://example.com/image.jpg",
   "caption": "Legenda"
+}
+```
+
+### Botões Interativos
+`POST /api/v1/messages/buttons`
+```json
+{
+  "session_id": "<SESSION_UUID>",
+  "to": "5511999999999",
+  "text": "Escolha uma opção:",
+  "footer": "Atendimento",
+  "buttons": [
+    { "id": "financeiro", "title": "Financeiro" },
+    { "id": "suporte", "title": "Suporte" },
+    { "id": "comercial", "title": "Comercial" }
+  ],
+  "fallback_text": "Escolha uma opção:\n1 - Financeiro\n2 - Suporte\n3 - Comercial"
 }
 ```

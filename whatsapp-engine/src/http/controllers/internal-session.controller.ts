@@ -49,4 +49,8 @@ export class InternalSessionController {
   sendAudio = async (req: FastifyRequest, reply: FastifyReply): Promise<void> => {
     reply.send(await this.service.sendAudio((req.params as { sessionId: string }).sessionId, req.body));
   };
+
+  sendButtons = async (req: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    reply.send(await this.service.sendButtons((req.params as { sessionId: string }).sessionId, req.body));
+  };
 }

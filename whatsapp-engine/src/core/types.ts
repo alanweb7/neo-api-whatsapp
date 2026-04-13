@@ -38,3 +38,16 @@ export type SendMediaPayload = {
   caption?: string;
   file_name?: string;
 };
+
+export type InteractiveButton = {
+  id: string;
+  title: string;
+};
+
+export type SendButtonsPayload = {
+  to: string;
+  text: string;
+  footer?: string;
+  buttons: InteractiveButton[];
+  fallback_text?: string;
+};

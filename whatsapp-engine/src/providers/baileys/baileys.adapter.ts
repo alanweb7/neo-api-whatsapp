@@ -5,7 +5,7 @@ import makeWASocket, {
   type WASocket
 } from "@whiskeysockets/baileys";
 import { Boom } from "@hapi/boom";
-import type { EventEnvelope, SendMediaPayload, SendTextPayload } from "../../core/types.js";
+import type { EventEnvelope, SendButtonsPayload, SendMediaPayload, SendTextPayload } from "../../core/types.js";
 import { logger } from "../../config/logger.js";
 import type { EventBus } from "../../infra/redis/event-bus.js";
 import type { SessionRegistryStore } from "../../infra/storage/session-registry.store.js";
@@ -169,6 +169,45 @@ export class BaileysAdapter {
     return { message_id: messageId };
   }
 
+  async sendButtons(sessionId: string, payload: SendButtonsPayload): Promise<{ message_id: string; mode: "buttons" | "fallback_text" }> {
+    const s = this.mustConnected(sessionId);
+    const jid = this.toJid(payload.to);
+    const buttons = payload.buttons.map((b) => ({
+      buttonId: b.id,
+      buttonText: { displayText: b.title },
+      type: 1
+    }));
+
+    try {
+      const interactivePayload: any = {
+        text: payload.text,
+        footer: payload.footer,
+        buttons,
+        headerType: 1
+      };
+      const res = await s.socket.sendMessage(jid, interactivePayload);
+      const messageId = this.extractMessageId(res);
+      await this.publish("message.sent", s.tenantId, s.sessionId, { id: messageId, to: payload.to, type: "buttons" });
+      return { message_id: messageId, mode: "buttons" };
+    } catch (err) {
+      logger.warn({ err, sessionId, to: payload.to }, "interactive buttons not supported, sending fallback text");
+      const fallbackText = payload.fallback_text ?? this.buildButtonsFallbackText(payload.text, payload.buttons);
+      const fallbackRes = await s.socket.sendMessage(jid, { text: fallbackText });
+      const fallbackId = this.extractMessageId(fallbackRes);
+      await this.publish("engine.error", s.tenantId, s.sessionId, {
+        category: "interactive_buttons_unsupported",
+        message: "buttons payload failed; fallback text sent"
+      });
+      await this.publish("message.sent", s.tenantId, s.sessionId, {
+        id: fallbackId,
+        to: payload.to,
+        type: "text_fallback",
+        original_type: "buttons"
+      });
+      return { message_id: fallbackId, mode: "fallback_text" };
+    }
+  }
+
   async bootstrap(): Promise<void> {
     const records = await this.store.list();
     for (const r of records) {
@@ -212,6 +251,11 @@ export class BaileysAdapter {
   private extractMessageId(res: unknown): string {
     const id = (res as { key?: { id?: string } } | undefined)?.key?.id;
     return id ?? "unknown";
+  }
+
+  private buildButtonsFallbackText(text: string, buttons: SendButtonsPayload["buttons"]): string {
+    const options = buttons.map((b, idx) => `${idx + 1} - ${b.title}`).join("\n");
+    return `${text}\n\n${options}`;
   }
 
   private async publish(

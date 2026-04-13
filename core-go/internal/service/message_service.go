@@ -53,6 +53,20 @@ func (s *MessageService) SendMedia(ctx context.Context, tenantID, sessionID uuid
 	return out, nil
 }
 
+func (s *MessageService) SendButtons(ctx context.Context, tenantID, sessionID uuid.UUID, payload map[string]any) (map[string]any, error) {
+	session, err := s.sessions.GetByID(ctx, tenantID, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	var out map[string]any
+	if err := s.engine.Post(ctx, fmt.Sprintf("/internal/v1/sessions/%s/messages/buttons", session.EngineSessionID), payload, &out); err != nil {
+		return nil, err
+	}
+	log := &domain.MessageLog{TenantID: tenantID, WhatsAppSessionID: session.ID, Direction: "outbound", MessageType: "buttons", Payload: datatypes.JSON(mustJSON(payload))}
+	_ = s.repo.CreateLog(ctx, log)
+	return out, nil
+}
+
 func (s *MessageService) ListLogs(ctx context.Context, tenantID uuid.UUID) ([]domain.MessageLog, error) {
 	return s.repo.ListByTenant(ctx, tenantID)
 }

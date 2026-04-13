@@ -55,6 +55,20 @@ type SendMediaRequest struct {
 	FileName  string `json:"file_name"`
 }
 
+type ButtonItem struct {
+	ID    string `json:"id" binding:"required,min=1,max=128"`
+	Title string `json:"title" binding:"required,min=1,max=40"`
+}
+
+type SendButtonsRequest struct {
+	SessionID    string       `json:"session_id" binding:"required,uuid"`
+	To           string       `json:"to" binding:"required"`
+	Text         string       `json:"text" binding:"required,min=1,max=1024"`
+	Footer       string       `json:"footer"`
+	Buttons      []ButtonItem `json:"buttons" binding:"required,min=1,max=3,dive"`
+	FallbackText string       `json:"fallback_text"`
+}
+
 type CreateWebhookRequest struct {
 	Name       string   `json:"name" binding:"required,min=3,max=80"`
 	URL        string   `json:"url" binding:"required,url"`
