@@ -2,6 +2,12 @@ import { z } from "zod";
 const createSchema = z.object({ tenant_id: z.string().uuid(), name: z.string().min(2).max(120) });
 const sendTextSchema = z.object({ to: z.string().min(8), text: z.string().min(1) });
 const sendMediaSchema = z.object({ to: z.string().min(8), media_url: z.string().url(), caption: z.string().optional(), file_name: z.string().optional() });
+const emptyToUndefined = (value) => {
+    if (typeof value === "string" && value.trim() === "") {
+        return undefined;
+    }
+    return value;
+};
 const sendButtonsSchema = z.object({
     jid: z.string().min(8),
     text: z.string().min(1).max(1024),
@@ -11,9 +17,9 @@ const sendButtonsSchema = z.object({
         type: z.enum(["quick_reply", "cta_url", "cta_call", "cta_copy"]),
         displayText: z.string().min(1).max(40),
         id: z.string().min(1).max(128),
-        url: z.string().url().optional(),
-        phoneNumber: z.string().min(3).max(32).optional(),
-        copyCode: z.string().min(1).max(500).optional()
+        url: z.preprocess(emptyToUndefined, z.string().url().optional()),
+        phoneNumber: z.preprocess(emptyToUndefined, z.string().min(3).max(32).optional()),
+        copyCode: z.preprocess(emptyToUndefined, z.string().min(1).max(500).optional())
     })).min(1).max(16)
 }).superRefine((payload, ctx) => {
     const hasQuickReply = payload.buttons.some((b) => b.type === "quick_reply");

@@ -59,9 +59,9 @@ type ButtonItem struct {
 	Type        string `json:"type" binding:"required,oneof=quick_reply cta_url cta_call cta_copy"`
 	DisplayText string `json:"displayText" binding:"required,min=1,max=40"`
 	ID          string `json:"id" binding:"required,min=1,max=128"`
-	URL         string `json:"url"`
-	PhoneNumber string `json:"phoneNumber"`
-	CopyCode    string `json:"copyCode"`
+	URL         string `json:"url,omitempty"`
+	PhoneNumber string `json:"phoneNumber,omitempty"`
+	CopyCode    string `json:"copyCode,omitempty"`
 }
 
 type SendButtonsRequest struct {
