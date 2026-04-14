@@ -299,8 +299,10 @@ export class BaileysAdapter {
       { userJid }
     );
 
+    const additionalNodes = this.buildInteractiveAdditionalNodes(payload.buttons);
     await session.socket.relayMessage(jid, waMessage.message as any, {
-      messageId: waMessage.key.id ?? undefined
+      messageId: waMessage.key.id ?? undefined,
+      additionalNodes
     });
     return waMessage.key.id ?? "unknown";
   }
@@ -368,10 +370,12 @@ export class BaileysAdapter {
       } as any,
       { userJid }
     );
+    const additionalNodes = this.buildInteractiveAdditionalNodes(payload.buttons);
 
     try {
       await session.socket.relayMessage(jid, directMessage.message as any, {
-        messageId: directMessage.key.id ?? undefined
+        messageId: directMessage.key.id ?? undefined,
+        additionalNodes
       });
       return directMessage.key.id ?? "unknown";
     } catch (directErr) {
@@ -391,9 +395,54 @@ export class BaileysAdapter {
     );
 
     await session.socket.relayMessage(jid, wrappedMessage.message as any, {
-      messageId: wrappedMessage.key.id ?? undefined
+      messageId: wrappedMessage.key.id ?? undefined,
+      additionalNodes
     });
     return wrappedMessage.key.id ?? "unknown";
+  }
+
+  private buildInteractiveAdditionalNodes(buttons: SendButtonsPayload["buttons"]): any[] {
+    const first = buttons[0];
+    if (!first) return [];
+
+    const specialNames: Record<string, string> = {
+      review_and_pay: "payment_info",
+      payment_info: "payment_info",
+      mpm: "mpm",
+      review_order: "order_details"
+    };
+
+    let firstName = "mixed";
+    if (first.type === "cta_url") firstName = "cta_url";
+    if (first.type === "cta_call") firstName = "cta_call";
+    if (first.type === "cta_copy") firstName = "cta_copy";
+    if (first.type === "quick_reply") firstName = "quick_reply";
+    const nativeFlowName = specialNames[firstName] ?? "mixed";
+
+    return [
+      {
+        tag: "biz",
+        attrs: {},
+        content: [
+          {
+            tag: "interactive",
+            attrs: {
+              type: "native_flow",
+              v: "1"
+            },
+            content: [
+              {
+                tag: "native_flow",
+                attrs: {
+                  v: "9",
+                  name: nativeFlowName
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ];
   }
 
   private async publish(
