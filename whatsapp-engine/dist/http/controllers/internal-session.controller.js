@@ -41,4 +41,7 @@ export class InternalSessionController {
     sendButtons = async (req, reply) => {
         reply.send(await this.service.sendButtons(req.params.sessionId, req.body));
     };
+    sendCarousel = async (req, reply) => {
+        reply.send(await this.service.sendCarousel(req.params.sessionId, req.body));
+    };
 }

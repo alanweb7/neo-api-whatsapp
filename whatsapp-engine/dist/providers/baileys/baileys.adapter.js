@@ -1,4 +1,5 @@
-import makeWASocket, { DisconnectReason, fetchLatestBaileysVersion, generateWAMessageFromContent, proto, useMultiFileAuthState } from "@whiskeysockets/baileys";
+import makeWASocket, { DisconnectReason, fetchLatestBaileysVersion, generateWAMessageFromContent, prepareWAMessageMedia, proto, useMultiFileAuthState } from "@whiskeysockets/baileys";
+import { randomBytes } from "node:crypto";
 import { logger } from "../../config/logger.js";
 export class BaileysAdapter {
     eventBus;
@@ -178,6 +179,104 @@ export class BaileysAdapter {
             return { message_id: fallbackId, mode: "fallback_text" };
         }
     }
+    async sendCarousel(sessionId, payload) {
+        const s = this.mustConnected(sessionId);
+        const jid = this.normalizeJid(payload.jid);
+        try {
+            const userJid = s.socket.user?.id;
+            if (!userJid) {
+                throw new Error("socket user not available");
+            }
+            const cards = await Promise.all(payload.cards.map(async (card) => {
+                const { imageMessage } = await prepareWAMessageMedia({ image: { url: card.image_url } }, { upload: s.socket.waUploadToServer });
+                return {
+                    header: {
+                        title: card.title ?? "",
+                        subtitle: card.footer ?? "",
+                        hasMediaAttachment: true,
+                        imageMessage
+                    },
+                    body: { text: card.body },
+                    footer: card.footer ? { text: card.footer } : undefined,
+                    nativeFlowMessage: {
+                        buttons: card.buttons.map((btn) => {
+                            if (btn.type === "cta_url") {
+                                return {
+                                    name: "cta_url",
+                                    buttonParamsJson: JSON.stringify({
+                                        display_text: btn.displayText,
+                                        url: btn.url,
+                                        merchant_url: btn.url
+                                    })
+                                };
+                            }
+                            if (btn.type === "cta_call") {
+                                return {
+                                    name: "cta_call",
+                                    buttonParamsJson: JSON.stringify({
+                                        display_text: btn.displayText,
+                                        phone_number: btn.phoneNumber
+                                    })
+                                };
+                            }
+                            if (btn.type === "cta_copy") {
+                                return {
+                                    name: "cta_copy",
+                                    buttonParamsJson: JSON.stringify({
+                                        display_text: btn.displayText,
+                                        copy_code: btn.copyCode
+                                    })
+                                };
+                            }
+                            return {
+                                name: "quick_reply",
+                                buttonParamsJson: JSON.stringify({
+                                    display_text: btn.displayText,
+                                    id: btn.id
+                                })
+                            };
+                        })
+                    }
+                };
+            }));
+            const interactiveMessage = {
+                carouselMessage: {
+                    cards,
+                    messageVersion: 1
+                },
+                header: { title: " ", hasMediaAttachment: false },
+                body: { text: payload.text || " " },
+                footer: payload.footer ? { text: payload.footer } : undefined
+            };
+            const waMessage = generateWAMessageFromContent(jid, {
+                interactiveMessage: proto.Message.InteractiveMessage.create(interactiveMessage)
+            }, { userJid });
+            await s.socket.relayMessage(jid, waMessage.message, {
+                messageId: waMessage.key.id ?? undefined,
+                additionalNodes: this.buildCarouselAdditionalNodes()
+            });
+            const messageId = waMessage.key.id ?? "unknown";
+            await this.publish("message.sent", s.tenantId, s.sessionId, { id: messageId, to: jid, type: "carousel_native_flow" });
+            return { message_id: messageId, mode: "native_flow" };
+        }
+        catch (err) {
+            logger.warn({ err, sessionId, jid }, "native flow carousel failed, sending fallback text");
+            const fallbackText = payload.fallback_text ?? this.buildCarouselFallbackText(payload.text, payload.cards);
+            const fallbackRes = await s.socket.sendMessage(jid, { text: fallbackText });
+            const fallbackId = this.extractMessageId(fallbackRes);
+            await this.publish("engine.error", s.tenantId, s.sessionId, {
+                category: "interactive_carousel_failed",
+                message: "native flow carousel failed; fallback text sent"
+            });
+            await this.publish("message.sent", s.tenantId, s.sessionId, {
+                id: fallbackId,
+                to: jid,
+                type: "text_fallback",
+                original_type: "carousel"
+            });
+            return { message_id: fallbackId, mode: "fallback_text" };
+        }
+    }
     async bootstrap() {
         const records = await this.store.list();
         for (const r of records) {
@@ -228,6 +327,10 @@ export class BaileysAdapter {
     }
     buildButtonsFallbackText(text, buttons) {
         const options = buttons.map((b, idx) => `${idx + 1} - ${b.displayText}`).join("\n");
+        return `${text}\n\n${options}`;
+    }
+    buildCarouselFallbackText(text, cards) {
+        const options = cards.map((card, idx) => `${idx + 1} - ${card.title ?? card.body}`).join("\n");
         return `${text}\n\n${options}`;
     }
     async sendLegacyQuickReplyButtons(session, jid, userJid, payload) {
@@ -361,6 +464,46 @@ export class BaileysAdapter {
                                 attrs: {
                                     v: "9",
                                     name: nativeFlowName
+                                }
+                            }
+                        ]
+                    }
+                ]
+            }
+        ];
+    }
+    buildCarouselAdditionalNodes() {
+        return [
+            {
+                tag: "biz",
+                attrs: {},
+                content: [
+                    {
+                        tag: "interactive",
+                        attrs: {
+                            type: "native_flow",
+                            v: "1"
+                        },
+                        content: [
+                            {
+                                tag: "native_flow",
+                                attrs: {
+                                    v: "9",
+                                    name: "mixed"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        tag: "quality_control",
+                        attrs: {
+                            decision_id: randomBytes(20).toString("hex")
+                        },
+                        content: [
+                            {
+                                tag: "decision_source",
+                                attrs: {
+                                    value: "df"
                                 }
                             }
                         ]

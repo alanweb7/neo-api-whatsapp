@@ -53,4 +53,8 @@ export class InternalSessionController {
   sendButtons = async (req: FastifyRequest, reply: FastifyReply): Promise<void> => {
     reply.send(await this.service.sendButtons((req.params as { sessionId: string }).sessionId, req.body));
   };
+
+  sendCarousel = async (req: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    reply.send(await this.service.sendCarousel((req.params as { sessionId: string }).sessionId, req.body));
+  };
 }

@@ -74,6 +74,24 @@ type SendButtonsRequest struct {
 	FallbackText string       `json:"fallback_text"`
 }
 
+type CarouselCardItem struct {
+	Title    string       `json:"title"`
+	Body     string       `json:"body" binding:"required,min=1,max=1024"`
+	Footer   string       `json:"footer"`
+	ImageURL string       `json:"image_url" binding:"required,url"`
+	Buttons  []ButtonItem `json:"buttons" binding:"required,min=1,max=2,dive"`
+}
+
+type SendCarouselRequest struct {
+	SessionID    string             `json:"session_id" binding:"required,uuid"`
+	JID          string             `json:"jid"`
+	To           string             `json:"to"`
+	Text         string             `json:"text" binding:"required,min=1,max=1024"`
+	Footer       string             `json:"footer"`
+	Cards        []CarouselCardItem `json:"cards" binding:"required,min=2,max=10,dive"`
+	FallbackText string             `json:"fallback_text"`
+}
+
 type CreateWebhookRequest struct {
 	Name       string   `json:"name" binding:"required,min=3,max=80"`
 	URL        string   `json:"url" binding:"required,url"`

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { SendButtonsPayload, SendMediaPayload, SendTextPayload } from "../../core/types.js";
+import type { SendButtonsPayload, SendCarouselPayload, SendMediaPayload, SendTextPayload } from "../../core/types.js";
 import { BaileysAdapter } from "../../providers/baileys/baileys.adapter.js";
 
 const createSchema = z.object({ tenant_id: z.string().uuid(), name: z.string().min(2).max(120) });
@@ -73,6 +73,73 @@ const sendButtonsSchema = z.object({
   });
 });
 
+const sendCarouselSchema = z.object({
+  jid: z.string().min(8),
+  text: z.string().min(1).max(1024),
+  footer: z.string().max(60).optional(),
+  fallback_text: z.string().max(1024).optional(),
+  cards: z.array(
+    z.object({
+      title: z.string().max(80).optional(),
+      body: z.string().min(1).max(1024),
+      footer: z.string().max(60).optional(),
+      image_url: z.string().url(),
+      buttons: z.array(
+        z.object({
+          type: z.enum(["quick_reply", "cta_url", "cta_call", "cta_copy"]),
+          displayText: z.string().min(1).max(40),
+          id: z.string().min(1).max(128),
+          url: z.preprocess(emptyToUndefined, z.string().url().optional()),
+          phoneNumber: z.preprocess(emptyToUndefined, z.string().min(3).max(32).optional()),
+          copyCode: z.preprocess(emptyToUndefined, z.string().min(1).max(500).optional())
+        })
+      ).min(1).max(2)
+    })
+  ).min(2).max(10)
+}).superRefine((payload, ctx) => {
+  payload.cards.forEach((card, cardIdx) => {
+    const hasQuickReply = card.buttons.some((b) => b.type === "quick_reply");
+    const hasCTA = card.buttons.some((b) => b.type !== "quick_reply");
+    if (hasQuickReply && hasCTA) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["cards", cardIdx, "buttons"],
+        message: "Do not mix quick_reply with CTA button types in the same card."
+      });
+    }
+    if (hasCTA && card.buttons.length > 2) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["cards", cardIdx, "buttons"],
+        message: "CTA carousel card supports at most 2 buttons."
+      });
+    }
+    card.buttons.forEach((button, buttonIdx) => {
+      if (button.type === "cta_url" && !button.url) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["cards", cardIdx, "buttons", buttonIdx, "url"],
+          message: "url is required for cta_url buttons."
+        });
+      }
+      if (button.type === "cta_call" && !button.phoneNumber) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["cards", cardIdx, "buttons", buttonIdx, "phoneNumber"],
+          message: "phoneNumber is required for cta_call buttons."
+        });
+      }
+      if (button.type === "cta_copy" && !button.copyCode) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["cards", cardIdx, "buttons", buttonIdx, "copyCode"],
+          message: "copyCode is required for cta_copy buttons."
+        });
+      }
+    });
+  });
+});
+
 export class SessionService {
   constructor(private readonly adapter: BaileysAdapter) {}
 
@@ -133,6 +200,11 @@ export class SessionService {
   async sendButtons(sessionId: string, payload: unknown): Promise<{ message_id: string; mode: "native_flow" | "fallback_text" | "legacy_buttons" }> {
     const parsed = sendButtonsSchema.parse(payload) as SendButtonsPayload;
     return this.adapter.sendButtons(sessionId, parsed);
+  }
+
+  async sendCarousel(sessionId: string, payload: unknown): Promise<{ message_id: string; mode: "native_flow" | "fallback_text" }> {
+    const parsed = sendCarouselSchema.parse(payload) as SendCarouselPayload;
+    return this.adapter.sendCarousel(sessionId, parsed);
   }
 
   async bootstrap(): Promise<void> {

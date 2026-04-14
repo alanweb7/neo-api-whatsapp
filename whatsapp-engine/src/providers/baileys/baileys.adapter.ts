@@ -2,12 +2,14 @@ import makeWASocket, {
   DisconnectReason,
   fetchLatestBaileysVersion,
   generateWAMessageFromContent,
+  prepareWAMessageMedia,
   proto,
   useMultiFileAuthState,
   type WASocket
 } from "@whiskeysockets/baileys";
 import { Boom } from "@hapi/boom";
-import type { EventEnvelope, SendButtonsPayload, SendMediaPayload, SendTextPayload } from "../../core/types.js";
+import { randomBytes } from "node:crypto";
+import type { EventEnvelope, SendButtonsPayload, SendCarouselPayload, SendMediaPayload, SendTextPayload } from "../../core/types.js";
 import { logger } from "../../config/logger.js";
 import type { EventBus } from "../../infra/redis/event-bus.js";
 import type { SessionRegistryStore } from "../../infra/storage/session-registry.store.js";
@@ -221,6 +223,120 @@ export class BaileysAdapter {
     }
   }
 
+  async sendCarousel(sessionId: string, payload: SendCarouselPayload): Promise<{ message_id: string; mode: "native_flow" | "fallback_text" }> {
+    const s = this.mustConnected(sessionId);
+    const jid = this.normalizeJid(payload.jid);
+
+    try {
+      const userJid = s.socket.user?.id;
+      if (!userJid) {
+        throw new Error("socket user not available");
+      }
+
+      const cards = await Promise.all(
+        payload.cards.map(async (card) => {
+          const { imageMessage } = await prepareWAMessageMedia(
+            { image: { url: card.image_url } },
+            { upload: s.socket.waUploadToServer }
+          );
+
+          return {
+            header: {
+              title: card.title ?? "",
+              subtitle: card.footer ?? "",
+              hasMediaAttachment: true,
+              imageMessage
+            },
+            body: { text: card.body },
+            footer: card.footer ? { text: card.footer } : undefined,
+            nativeFlowMessage: {
+              buttons: card.buttons.map((btn) => {
+                if (btn.type === "cta_url") {
+                  return {
+                    name: "cta_url",
+                    buttonParamsJson: JSON.stringify({
+                      display_text: btn.displayText,
+                      url: btn.url,
+                      merchant_url: btn.url
+                    })
+                  };
+                }
+                if (btn.type === "cta_call") {
+                  return {
+                    name: "cta_call",
+                    buttonParamsJson: JSON.stringify({
+                      display_text: btn.displayText,
+                      phone_number: btn.phoneNumber
+                    })
+                  };
+                }
+                if (btn.type === "cta_copy") {
+                  return {
+                    name: "cta_copy",
+                    buttonParamsJson: JSON.stringify({
+                      display_text: btn.displayText,
+                      copy_code: btn.copyCode
+                    })
+                  };
+                }
+                return {
+                  name: "quick_reply",
+                  buttonParamsJson: JSON.stringify({
+                    display_text: btn.displayText,
+                    id: btn.id
+                  })
+                };
+              })
+            }
+          };
+        })
+      );
+
+      const interactiveMessage: any = {
+        carouselMessage: {
+          cards,
+          messageVersion: 1
+        },
+        header: { title: " ", hasMediaAttachment: false },
+        body: { text: payload.text || " " },
+        footer: payload.footer ? { text: payload.footer } : undefined
+      };
+
+      const waMessage = generateWAMessageFromContent(
+        jid,
+        {
+          interactiveMessage: proto.Message.InteractiveMessage.create(interactiveMessage)
+        } as any,
+        { userJid }
+      );
+
+      await s.socket.relayMessage(jid, waMessage.message as any, {
+        messageId: waMessage.key.id ?? undefined,
+        additionalNodes: this.buildCarouselAdditionalNodes()
+      });
+
+      const messageId = waMessage.key.id ?? "unknown";
+      await this.publish("message.sent", s.tenantId, s.sessionId, { id: messageId, to: jid, type: "carousel_native_flow" });
+      return { message_id: messageId, mode: "native_flow" };
+    } catch (err) {
+      logger.warn({ err, sessionId, jid }, "native flow carousel failed, sending fallback text");
+      const fallbackText = payload.fallback_text ?? this.buildCarouselFallbackText(payload.text, payload.cards);
+      const fallbackRes = await s.socket.sendMessage(jid, { text: fallbackText });
+      const fallbackId = this.extractMessageId(fallbackRes);
+      await this.publish("engine.error", s.tenantId, s.sessionId, {
+        category: "interactive_carousel_failed",
+        message: "native flow carousel failed; fallback text sent"
+      });
+      await this.publish("message.sent", s.tenantId, s.sessionId, {
+        id: fallbackId,
+        to: jid,
+        type: "text_fallback",
+        original_type: "carousel"
+      });
+      return { message_id: fallbackId, mode: "fallback_text" };
+    }
+  }
+
   async bootstrap(): Promise<void> {
     const records = await this.store.list();
     for (const r of records) {
@@ -273,6 +389,11 @@ export class BaileysAdapter {
 
   private buildButtonsFallbackText(text: string, buttons: SendButtonsPayload["buttons"]): string {
     const options = buttons.map((b, idx) => `${idx + 1} - ${b.displayText}`).join("\n");
+    return `${text}\n\n${options}`;
+  }
+
+  private buildCarouselFallbackText(text: string, cards: SendCarouselPayload["cards"]): string {
+    const options = cards.map((card, idx) => `${idx + 1} - ${card.title ?? card.body}`).join("\n");
     return `${text}\n\n${options}`;
   }
 
@@ -436,6 +557,47 @@ export class BaileysAdapter {
                 attrs: {
                   v: "9",
                   name: nativeFlowName
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ];
+  }
+
+  private buildCarouselAdditionalNodes(): any[] {
+    return [
+      {
+        tag: "biz",
+        attrs: {},
+        content: [
+          {
+            tag: "interactive",
+            attrs: {
+              type: "native_flow",
+              v: "1"
+            },
+            content: [
+              {
+                tag: "native_flow",
+                attrs: {
+                  v: "9",
+                  name: "mixed"
+                }
+              }
+            ]
+          },
+          {
+            tag: "quality_control",
+            attrs: {
+              decision_id: randomBytes(20).toString("hex")
+            },
+            content: [
+              {
+                tag: "decision_source",
+                attrs: {
+                  value: "df"
                 }
               }
             ]

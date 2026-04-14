@@ -33,4 +33,5 @@ export async function registerInternalRoutes(
   app.post("/internal/v1/sessions/:sessionId/messages/document", internalOpts, controller.sendDocument);
   app.post("/internal/v1/sessions/:sessionId/messages/audio", internalOpts, controller.sendAudio);
   app.post("/internal/v1/sessions/:sessionId/messages/buttons", internalOpts, controller.sendButtons);
+  app.post("/internal/v1/sessions/:sessionId/messages/carousel", internalOpts, controller.sendCarousel);
 }

@@ -55,3 +55,19 @@ export type SendButtonsPayload = {
   buttons: InteractiveButton[];
   fallback_text?: string;
 };
+
+export type CarouselCard = {
+  title?: string;
+  body: string;
+  footer?: string;
+  image_url: string;
+  buttons: InteractiveButton[];
+};
+
+export type SendCarouselPayload = {
+  jid: string;
+  text: string;
+  footer?: string;
+  cards: CarouselCard[];
+  fallback_text?: string;
+};

@@ -65,6 +65,7 @@ func Build(tokens *service.TokenService, c Controllers) *gin.Engine {
 			protected.POST("/messages/document", c.Message.SendDocument)
 			protected.POST("/messages/audio", c.Message.SendAudio)
 			protected.POST("/messages/buttons", c.Message.SendButtons)
+			protected.POST("/messages/carousel", c.Message.SendCarousel)
 			protected.GET("/messages/logs", c.Message.ListLogs)
 
 			protected.POST("/webhooks", c.Webhook.Create)
