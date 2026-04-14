@@ -14,7 +14,7 @@ const sendButtonsSchema = z.object({
         url: z.string().url().optional(),
         phoneNumber: z.string().min(3).max(32).optional(),
         copyCode: z.string().min(1).max(500).optional()
-    })).min(1).max(3)
+    })).min(1).max(16)
 }).superRefine((payload, ctx) => {
     const hasQuickReply = payload.buttons.some((b) => b.type === "quick_reply");
     const hasCTA = payload.buttons.some((b) => b.type !== "quick_reply");
@@ -24,6 +24,41 @@ const sendButtonsSchema = z.object({
             message: "Do not mix quick_reply with CTA button types in the same payload."
         });
     }
+    if (hasCTA && payload.buttons.length > 3) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "CTA payload supports at most 3 buttons."
+        });
+    }
+    if (hasQuickReply && payload.buttons.length > 16) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "quick_reply payload supports at most 16 buttons."
+        });
+    }
+    payload.buttons.forEach((button, index) => {
+        if (button.type === "cta_url" && !button.url) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ["buttons", index, "url"],
+                message: "url is required for cta_url buttons."
+            });
+        }
+        if (button.type === "cta_call" && !button.phoneNumber) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ["buttons", index, "phoneNumber"],
+                message: "phoneNumber is required for cta_call buttons."
+            });
+        }
+        if (button.type === "cta_copy" && !button.copyCode) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ["buttons", index, "copyCode"],
+                message: "copyCode is required for cta_copy buttons."
+            });
+        }
+    });
 });
 export class SessionService {
     adapter;

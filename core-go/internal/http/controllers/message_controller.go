@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/alan/baileys-saas/core-go/internal/http/dto"
 	"github.com/alan/baileys-saas/core-go/internal/service"
@@ -53,6 +54,40 @@ func (h *MessageController) SendButtons(c *gin.Context) {
 	}
 	if target == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "jid or to is required"})
+		return
+	}
+	hasQuickReply := false
+	hasCTA := false
+	for _, button := range req.Buttons {
+		switch button.Type {
+		case "quick_reply":
+			hasQuickReply = true
+		case "cta_url", "cta_call", "cta_copy":
+			hasCTA = true
+		}
+		if button.Type == "cta_url" && strings.TrimSpace(button.URL) == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "url is required for cta_url buttons"})
+			return
+		}
+		if button.Type == "cta_call" && strings.TrimSpace(button.PhoneNumber) == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "phoneNumber is required for cta_call buttons"})
+			return
+		}
+		if button.Type == "cta_copy" && strings.TrimSpace(button.CopyCode) == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "copyCode is required for cta_copy buttons"})
+			return
+		}
+	}
+	if hasQuickReply && hasCTA {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "do not mix quick_reply with cta button types in the same payload"})
+		return
+	}
+	if hasCTA && len(req.Buttons) > 3 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "cta payload supports at most 3 buttons"})
+		return
+	}
+	if hasQuickReply && len(req.Buttons) > 16 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "quick_reply payload supports at most 16 buttons"})
 		return
 	}
 	sid, _ := uuid.Parse(req.SessionID)

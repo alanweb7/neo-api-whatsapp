@@ -56,9 +56,12 @@ type SendMediaRequest struct {
 }
 
 type ButtonItem struct {
-	Type        string `json:"type" binding:"required,oneof=quick_reply"`
+	Type        string `json:"type" binding:"required,oneof=quick_reply cta_url cta_call cta_copy"`
 	DisplayText string `json:"displayText" binding:"required,min=1,max=40"`
 	ID          string `json:"id" binding:"required,min=1,max=128"`
+	URL         string `json:"url"`
+	PhoneNumber string `json:"phoneNumber"`
+	CopyCode    string `json:"copyCode"`
 }
 
 type SendButtonsRequest struct {
@@ -67,7 +70,7 @@ type SendButtonsRequest struct {
 	To           string       `json:"to"`
 	Text         string       `json:"text" binding:"required,min=1,max=1024"`
 	Footer       string       `json:"footer"`
-	Buttons      []ButtonItem `json:"buttons" binding:"required,min=1,max=3,dive"`
+	Buttons      []ButtonItem `json:"buttons" binding:"required,min=1,max=16,dive"`
 	FallbackText string       `json:"fallback_text"`
 }
 

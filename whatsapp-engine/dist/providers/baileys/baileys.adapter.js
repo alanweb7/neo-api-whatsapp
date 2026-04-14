@@ -137,72 +137,28 @@ export class BaileysAdapter {
         const s = this.mustConnected(sessionId);
         const jid = this.normalizeJid(payload.jid);
         try {
-            const nativeFlowButtons = payload.buttons.map((btn) => {
-                if (btn.type === "cta_url") {
-                    return {
-                        name: "cta_url",
-                        buttonParamsJson: JSON.stringify({
-                            display_text: btn.displayText,
-                            url: btn.url ?? "",
-                            merchant_url: btn.url ?? ""
-                        })
-                    };
-                }
-                if (btn.type === "cta_call") {
-                    return {
-                        name: "cta_call",
-                        buttonParamsJson: JSON.stringify({
-                            display_text: btn.displayText,
-                            phone_number: btn.phoneNumber ?? btn.id
-                        })
-                    };
-                }
-                if (btn.type === "cta_copy") {
-                    return {
-                        name: "cta_copy",
-                        buttonParamsJson: JSON.stringify({
-                            display_text: btn.displayText,
-                            copy_code: btn.copyCode ?? btn.id
-                        })
-                    };
-                }
-                return {
-                    name: "quick_reply",
-                    buttonParamsJson: JSON.stringify({
-                        display_text: btn.displayText,
-                        id: btn.id
-                    })
-                };
-            });
-            const interactiveMessage = {
-                body: { text: payload.text || " " },
-                nativeFlowMessage: {
-                    buttons: nativeFlowButtons,
-                    messageVersion: 1
-                }
-            };
-            if (payload.footer) {
-                interactiveMessage.footer = { text: payload.footer };
-            }
             const userJid = s.socket.user?.id;
             if (!userJid) {
                 throw new Error("socket user not available");
             }
-            const waMessage = generateWAMessageFromContent(jid, {
-                viewOnceMessage: {
-                    message: {
-                        messageContextInfo: {
-                            deviceListMetadata: {},
-                            deviceListMetadataVersion: 2
-                        },
-                        interactiveMessage: proto.Message.InteractiveMessage.create(interactiveMessage)
-                    }
+            const allQuickReply = payload.buttons.every((button) => button.type === "quick_reply");
+            if (allQuickReply && payload.buttons.length <= 3) {
+                try {
+                    const legacyMessageId = await this.sendLegacyQuickReplyButtons(s, jid, userJid, payload);
+                    await this.publish("message.sent", s.tenantId, s.sessionId, {
+                        id: legacyMessageId,
+                        to: jid,
+                        type: "buttons_legacy"
+                    });
+                    return { message_id: legacyMessageId, mode: "legacy_buttons" };
                 }
-            }, { userJid });
-            await s.socket.relayMessage(jid, waMessage.message, { messageId: waMessage.key.id ?? undefined });
-            const messageId = waMessage.key.id ?? "unknown";
-            await this.publish("message.sent", s.tenantId, s.sessionId, { id: messageId, to: jid, type: "buttons_native_flow" });
-            return { message_id: messageId, mode: "native_flow" };
+                catch (legacyErr) {
+                    logger.warn({ err: legacyErr, sessionId, jid }, "legacy buttonsMessage failed, trying native flow");
+                }
+            }
+            const nativeMessageId = await this.sendNativeFlowButtons(s, jid, userJid, payload);
+            await this.publish("message.sent", s.tenantId, s.sessionId, { id: nativeMessageId, to: jid, type: "buttons_native_flow" });
+            return { message_id: nativeMessageId, mode: "native_flow" };
         }
         catch (err) {
             logger.warn({ err, sessionId, jid }, "native flow buttons failed, sending fallback text");
@@ -273,6 +229,95 @@ export class BaileysAdapter {
     buildButtonsFallbackText(text, buttons) {
         const options = buttons.map((b, idx) => `${idx + 1} - ${b.displayText}`).join("\n");
         return `${text}\n\n${options}`;
+    }
+    async sendLegacyQuickReplyButtons(session, jid, userJid, payload) {
+        const buttonsMessage = proto.Message.ButtonsMessage.create({
+            contentText: payload.text,
+            footerText: payload.footer,
+            headerType: proto.Message.ButtonsMessage.HeaderType.EMPTY,
+            buttons: payload.buttons.map((button) => ({
+                buttonId: button.id,
+                buttonText: { displayText: button.displayText },
+                type: proto.Message.ButtonsMessage.Button.Type.RESPONSE
+            }))
+        });
+        const waMessage = generateWAMessageFromContent(jid, { buttonsMessage }, { userJid });
+        await session.socket.relayMessage(jid, waMessage.message, {
+            messageId: waMessage.key.id ?? undefined
+        });
+        return waMessage.key.id ?? "unknown";
+    }
+    async sendNativeFlowButtons(session, jid, userJid, payload) {
+        const nativeFlowButtons = payload.buttons.map((btn) => {
+            if (btn.type === "cta_url") {
+                return {
+                    name: "cta_url",
+                    buttonParamsJson: JSON.stringify({
+                        display_text: btn.displayText,
+                        url: btn.url,
+                        merchant_url: btn.url
+                    })
+                };
+            }
+            if (btn.type === "cta_call") {
+                return {
+                    name: "cta_call",
+                    buttonParamsJson: JSON.stringify({
+                        display_text: btn.displayText,
+                        phone_number: btn.phoneNumber
+                    })
+                };
+            }
+            if (btn.type === "cta_copy") {
+                return {
+                    name: "cta_copy",
+                    buttonParamsJson: JSON.stringify({
+                        display_text: btn.displayText,
+                        copy_code: btn.copyCode
+                    })
+                };
+            }
+            return {
+                name: "quick_reply",
+                buttonParamsJson: JSON.stringify({
+                    display_text: btn.displayText,
+                    id: btn.id
+                })
+            };
+        });
+        const interactiveMessage = {
+            body: { text: payload.text || " " },
+            nativeFlowMessage: {
+                buttons: nativeFlowButtons,
+                messageVersion: 1
+            }
+        };
+        if (payload.footer) {
+            interactiveMessage.footer = { text: payload.footer };
+        }
+        const directMessage = generateWAMessageFromContent(jid, {
+            interactiveMessage: proto.Message.InteractiveMessage.create(interactiveMessage)
+        }, { userJid });
+        try {
+            await session.socket.relayMessage(jid, directMessage.message, {
+                messageId: directMessage.key.id ?? undefined
+            });
+            return directMessage.key.id ?? "unknown";
+        }
+        catch (directErr) {
+            logger.warn({ err: directErr, jid }, "direct interactiveMessage send failed, retrying viewOnce wrapper");
+        }
+        const wrappedMessage = generateWAMessageFromContent(jid, {
+            viewOnceMessage: {
+                message: {
+                    interactiveMessage: proto.Message.InteractiveMessage.create(interactiveMessage)
+                }
+            }
+        }, { userJid });
+        await session.socket.relayMessage(jid, wrappedMessage.message, {
+            messageId: wrappedMessage.key.id ?? undefined
+        });
+        return wrappedMessage.key.id ?? "unknown";
     }
     async publish(type, tenantId, sessionId, payload) {
         await this.eventBus.publish({
