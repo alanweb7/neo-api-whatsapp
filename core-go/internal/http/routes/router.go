@@ -5,6 +5,7 @@ import (
 
 	"github.com/alan/baileys-saas/core-go/internal/http/controllers"
 	"github.com/alan/baileys-saas/core-go/internal/http/middleware"
+	"github.com/alan/baileys-saas/core-go/internal/repository"
 	"github.com/alan/baileys-saas/core-go/internal/service"
 	"github.com/gin-gonic/gin"
 )
@@ -19,7 +20,7 @@ type Controllers struct {
 	Webhook *controllers.WebhookController
 }
 
-func Build(tokens *service.TokenService, c Controllers) *gin.Engine {
+func Build(tokens *service.TokenService, apiKeyRepo *repository.APIKeyRepository, c Controllers) *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Recovery())
 	r.Use(middleware.RequestID())
@@ -52,7 +53,6 @@ func Build(tokens *service.TokenService, c Controllers) *gin.Engine {
 			protected.POST("/api-keys/:apiKeyId/revoke", c.APIKey.Revoke)
 
 			protected.POST("/sessions", c.Session.Create)
-			protected.POST("/sessions/:sessionId/start", c.Session.Start)
 			protected.GET("/sessions", c.Session.List)
 			protected.GET("/sessions/:sessionId", c.Session.Get)
 			protected.GET("/sessions/:sessionId/qr", c.Session.QR)
@@ -74,6 +74,13 @@ func Build(tokens *service.TokenService, c Controllers) *gin.Engine {
 			protected.PUT("/webhooks/:webhookId", c.Webhook.Update)
 			protected.DELETE("/webhooks/:webhookId", c.Webhook.Delete)
 			protected.GET("/webhooks/deliveries", c.Webhook.ListDeliveries)
+		}
+
+		// Rotas que suportam JWT ou API Key (sem validação de expiração com API Key)
+		apiOrJwt := v1.Group("")
+		apiOrJwt.Use(middleware.AuthOrAPIKey(tokens, apiKeyRepo))
+		{
+			apiOrJwt.POST("/sessions/:sessionId/start", c.Session.Start)
 		}
 	}
 

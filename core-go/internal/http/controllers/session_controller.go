@@ -38,16 +38,38 @@ func (h *SessionController) Start(c *gin.Context) {
 	if !ok {
 		return
 	}
-	sid, err := uuid.Parse(c.Param("sessionId"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid session id"})
-		return
+
+	// Priorizar engine_session_id do header se API Key está presente
+	engineSessionID := c.GetHeader("X-Engine-Session-ID")
+	var sid uuid.UUID
+	var err error
+
+	if engineSessionID != "" {
+		// Se engine_session_id foi fornecido, usar como identificador
+		sid, err = uuid.Parse(engineSessionID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid engine_session_id format"})
+			return
+		}
+	} else {
+		// Fallback para sessionId do caminho
+		sid, err = uuid.Parse(c.Param("sessionId"))
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid session id"})
+			return
+		}
 	}
+
 	if err := h.service.Start(c.Request.Context(), tenantID, sid); err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"started": true})
+	qr, err := h.service.GetQRCode(c.Request.Context(), tenantID, sid)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"started": true})
+		return
+	}
+	c.JSON(http.StatusOK, qr)
 }
 
 func (h *SessionController) List(c *gin.Context) {

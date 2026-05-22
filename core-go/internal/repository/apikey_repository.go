@@ -29,3 +29,12 @@ func (r *APIKeyRepository) Revoke(ctx context.Context, tenantID, keyID uuid.UUID
 		Where("id = ? and tenant_id = ?", keyID, tenantID).
 		Updates(map[string]any{"revoked_at": &now}).Error
 }
+
+func (r *APIKeyRepository) GetByHash(ctx context.Context, keyHash string) (*domain.ApiKey, error) {
+	var key domain.ApiKey
+	err := r.db.WithContext(ctx).Where("key_hash = ?", keyHash).First(&key).Error
+	if err != nil {
+		return nil, err
+	}
+	return &key, nil
+}
