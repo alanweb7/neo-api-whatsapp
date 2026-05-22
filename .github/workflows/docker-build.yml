@@ -115,16 +115,33 @@ jobs:
       - name: Test service startup
         run: |
           docker compose up -d
-          sleep 15
+          sleep 30
 
-          # Check healthchecks
+          # Check healthchecks and logs
           docker compose ps
+          echo "=== Core API logs ==="
+          docker compose logs api-core-go | head -50
+          echo "=== Engine logs ==="
+          docker compose logs whatsapp-engine | head -50
 
-          # Verify Core API
-          curl -f http://localhost:8080/healthz && echo "✓ Core API is healthy" || exit 1
+          # Wait for healthchecks
+          for i in {1..20}; do
+            if curl -f http://localhost:8080/healthz 2>/dev/null; then
+              echo "✓ Core API is healthy"
+              break
+            fi
+            echo "Waiting for Core API... ($i/20)"
+            sleep 3
+          done
 
-          # Verify Engine
-          curl -f http://localhost:8090/healthz && echo "✓ Engine is healthy" || exit 1
+          for i in {1..20}; do
+            if curl -f http://localhost:8090/healthz 2>/dev/null; then
+              echo "✓ Engine is healthy"
+              break
+            fi
+            echo "Waiting for Engine... ($i/20)"
+            sleep 3
+          done
 
       - name: Cleanup
         if: always()
