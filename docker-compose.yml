@@ -41,6 +41,7 @@ services:
       - ./.env
     environment:
       ENGINE_PORT: 8090
+      NODE_ENV: production
     ports:
       - "8090:8090"
     volumes:
@@ -51,8 +52,9 @@ services:
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8090/healthz"]
       interval: 15s
-      timeout: 5s
+      timeout: 10s
       retries: 5
+      start_period: 30s
 
   api-core-go:
     build:

@@ -22,6 +22,10 @@ export async function buildApp() {
   const sessionService = new SessionService(adapter);
   const controller = new InternalSessionController(sessionService);
 
+  app.get("/healthz", async (_req, reply) => {
+    reply.send({ status: "ok" });
+  });
+
   await registerInternalRoutes(app, controller, eventBus);
 
   app.setErrorHandler((error: Error, _req, reply) => {
