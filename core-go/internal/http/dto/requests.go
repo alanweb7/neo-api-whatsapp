@@ -6,6 +6,13 @@ type LoginRequest struct {
 	TenantID string `json:"tenant_id" binding:"required,uuid"`
 }
 
+type RegisterRequest struct {
+	Email      string `json:"email" binding:"required,email"`
+	Password   string `json:"password" binding:"required,min=8"`
+	FullName   string `json:"full_name" binding:"required,min=2,max=120"`
+	TenantName string `json:"tenant_name" binding:"required,min=2,max=120"`
+}
+
 type RefreshRequest struct {
 	RefreshToken string `json:"refresh_token" binding:"required"`
 	TenantID     string `json:"tenant_id" binding:"required,uuid"`

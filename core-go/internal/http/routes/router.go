@@ -31,6 +31,7 @@ func Build(tokens *service.TokenService, c Controllers) *gin.Engine {
 	{
 		auth := v1.Group("/auth")
 		auth.POST("/login", c.Auth.Login)
+		auth.POST("/register", c.Auth.Register)
 		auth.POST("/refresh", c.Auth.Refresh)
 		auth.GET("/me", middleware.Auth(tokens), c.Auth.Me)
 

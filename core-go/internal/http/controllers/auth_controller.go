@@ -61,3 +61,17 @@ func (h *AuthController) Me(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, user)
 }
+
+func (h *AuthController) Register(c *gin.Context) {
+	var req dto.RegisterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	user, tenantID, err := h.auth.Register(c.Request.Context(), req.Email, req.Password, req.FullName, req.TenantName)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"user_id": user.ID, "tenant_id": tenantID, "email": user.Email})
+}
