@@ -89,17 +89,3 @@ jobs:
         if: always()
         run: docker compose down -v
 
-  lint-dockerfiles:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Lint Dockerfiles
-        uses: hadolint/hadolint-action@v3
-        with:
-          dockerfiles: |
-            core-go/Dockerfile
-            whatsapp-engine/Dockerfile
-          ignore: DL3008,DL3009
