@@ -98,12 +98,16 @@ jobs:
       - name: Create .env file
         run: |
           cp .env.example .env 2>/dev/null || cat > .env << 'EOF'
+          NODE_ENV=production
           POSTGRES_DB=wa_saas
           POSTGRES_USER=wa_user
           POSTGRES_PASSWORD=wa_pass
           REDIS_URL=redis://redis:6379
           ENGINE_PORT=8090
           HTTP_PORT=8080
+          INTERNAL_API_KEY=test-api-key-12345
+          WA_EVENTS_CHANNEL=wa.events.v1
+          SESSION_STORE_PATH=/app/data/sessions
           EOF
 
       - name: Validate docker-compose.yml
