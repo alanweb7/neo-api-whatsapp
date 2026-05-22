@@ -35,8 +35,12 @@ func Auth(tokens *service.TokenService) gin.HandlerFunc {
 
 func AuthOrAPIKey(tokens *service.TokenService, apiKeyRepo *repository.APIKeyRepository) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Tentar API Key primeiro
+		// Tentar API Key primeiro (aceita X-API-Key ou api-key)
 		apiKey := c.GetHeader("X-API-Key")
+		if apiKey == "" {
+			apiKey = c.GetHeader("api-key")
+		}
+
 		if apiKey != "" {
 			// Validar API Key (sem validar expiração)
 			apiKeyHash := hashAPIKey(apiKey)

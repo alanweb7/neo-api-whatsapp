@@ -36,6 +36,14 @@ func Build(tokens *service.TokenService, apiKeyRepo *repository.APIKeyRepository
 		auth.POST("/refresh", c.Auth.Refresh)
 		auth.GET("/me", middleware.Auth(tokens), c.Auth.Me)
 
+		// Rotas que suportam JWT ou API Key (sem validação de expiração com API Key)
+		// DEFINIR PRIMEIRO para ter prioridade
+		apiOrJwt := v1.Group("")
+		apiOrJwt.Use(middleware.AuthOrAPIKey(tokens, apiKeyRepo))
+		{
+			apiOrJwt.POST("/sessions/:sessionId/start", c.Session.Start)
+		}
+
 		protected := v1.Group("")
 		protected.Use(middleware.Auth(tokens))
 		{
@@ -74,13 +82,6 @@ func Build(tokens *service.TokenService, apiKeyRepo *repository.APIKeyRepository
 			protected.PUT("/webhooks/:webhookId", c.Webhook.Update)
 			protected.DELETE("/webhooks/:webhookId", c.Webhook.Delete)
 			protected.GET("/webhooks/deliveries", c.Webhook.ListDeliveries)
-		}
-
-		// Rotas que suportam JWT ou API Key (sem validação de expiração com API Key)
-		apiOrJwt := v1.Group("")
-		apiOrJwt.Use(middleware.AuthOrAPIKey(tokens, apiKeyRepo))
-		{
-			apiOrJwt.POST("/sessions/:sessionId/start", c.Session.Start)
 		}
 	}
 
