@@ -64,7 +64,7 @@ func main() {
 	messageRepo := repository.NewMessageRepository(db)
 	webhookRepo := repository.NewWebhookRepository(db)
 
-	authSvc := service.NewAuthService(userRepo, tokenSvc)
+	authSvc := service.NewAuthService(userRepo, tenantRepo, tokenSvc)
 	tenantSvc := service.NewTenantService(tenantRepo)
 	userSvc := service.NewUserService(userRepo)
 	apiKeySvc := service.NewAPIKeyService(apiKeyRepo)
