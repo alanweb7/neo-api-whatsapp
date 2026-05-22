@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"crypto/sha256"
 	"net/http"
 	"strings"
 
@@ -8,7 +9,6 @@ import (
 	"github.com/alan/baileys-saas/core-go/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"golang.org/x/crypto/sha256"
 )
 
 func Auth(tokens *service.TokenService) gin.HandlerFunc {
