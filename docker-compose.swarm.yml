@@ -67,7 +67,7 @@ services:
       NODE_ENV: production
       ENGINE_PORT: 8090
       REDIS_URL: redis://redis:6379
-      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      INTERNAL_API_KEY: changeme123456789012345
       WA_EVENTS_CHANNEL: wa.events.v1
       SESSION_STORE_PATH: /app/data/sessions
     volumes:
