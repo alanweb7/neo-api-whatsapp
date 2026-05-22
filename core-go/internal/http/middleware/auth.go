@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"crypto/sha256"
+	"encoding/hex"
 	"net/http"
 	"strings"
 
@@ -79,5 +80,5 @@ func AuthOrAPIKey(tokens *service.TokenService, apiKeyRepo *repository.APIKeyRep
 
 func hashAPIKey(key string) string {
 	h := sha256.Sum256([]byte(key))
-	return string(h[:])
+	return hex.EncodeToString(h[:])
 }
