@@ -1,5 +1,6 @@
 import makeWASocket, { DisconnectReason, fetchLatestBaileysVersion, generateWAMessageFromContent, prepareWAMessageMedia, proto, useMultiFileAuthState } from "@whiskeysockets/baileys";
 import { randomBytes } from "node:crypto";
+import QRCode from "qrcode";
 import { logger } from "../../config/logger.js";
 export class BaileysAdapter {
     eventBus;
@@ -76,7 +77,15 @@ export class BaileysAdapter {
         const s = this.sessions.get(sessionId);
         if (!s)
             throw new Error("session not found");
-        return { status: s.status, qr_code: s.qrCode };
+        let qrCodeBase64;
+        if (s.qrCode) {
+            qrCodeBase64 = await this.convertQRCodeToBase64(s.qrCode);
+        }
+        return { status: s.status, qr_code: qrCodeBase64 };
+    }
+    async convertQRCodeToBase64(qrString) {
+        const png = await QRCode.toDataURL(qrString);
+        return png;
     }
     async disconnect(sessionId) {
         const s = this.sessions.get(sessionId);

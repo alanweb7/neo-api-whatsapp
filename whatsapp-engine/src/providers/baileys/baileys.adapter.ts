@@ -9,6 +9,7 @@ import makeWASocket, {
 } from "@whiskeysockets/baileys";
 import { Boom } from "@hapi/boom";
 import { randomBytes } from "node:crypto";
+import QRCode from "qrcode";
 import type { EventEnvelope, SendButtonsPayload, SendCarouselPayload, SendMediaPayload, SendTextPayload } from "../../core/types.js";
 import { logger } from "../../config/logger.js";
 import type { EventBus } from "../../infra/redis/event-bus.js";
@@ -112,7 +113,16 @@ export class BaileysAdapter {
   async getStatus(sessionId: string): Promise<{ status: string; qr_code?: string }> {
     const s = this.sessions.get(sessionId);
     if (!s) throw new Error("session not found");
-    return { status: s.status, qr_code: s.qrCode };
+    let qrCodeBase64: string | undefined;
+    if (s.qrCode) {
+      qrCodeBase64 = await this.convertQRCodeToBase64(s.qrCode);
+    }
+    return { status: s.status, qr_code: qrCodeBase64 };
+  }
+
+  private async convertQRCodeToBase64(qrString: string): Promise<string> {
+    const png = await QRCode.toDataURL(qrString);
+    return png;
   }
 
   async disconnect(sessionId: string): Promise<void> {
