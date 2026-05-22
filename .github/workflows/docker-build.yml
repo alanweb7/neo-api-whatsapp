@@ -47,19 +47,19 @@ jobs:
 
       - name: Validate docker-compose.yml
         run: |
-          docker-compose config > /dev/null && echo "✓ docker-compose.yml is valid"
+          docker compose config > /dev/null && echo "✓ docker-compose.yml is valid"
 
-      - name: Build with docker-compose
+      - name: Build with docker compose
         run: |
-          docker-compose build --no-cache
+          docker compose build --no-cache
 
       - name: Test service startup
         run: |
-          docker-compose up -d
+          docker compose up -d
           sleep 10
 
           # Check healthchecks
-          docker-compose ps
+          docker compose ps
 
           # Verify Core API
           curl -f http://localhost:8080/healthz || exit 1
@@ -71,7 +71,7 @@ jobs:
 
       - name: Cleanup
         if: always()
-        run: docker-compose down -v
+        run: docker compose down -v
 
   lint-dockerfiles:
     runs-on: ubuntu-latest
