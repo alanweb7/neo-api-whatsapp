@@ -8,12 +8,6 @@ on:
       - 'whatsapp-engine/**'
       - 'docker-compose.yml'
       - '.github/workflows/docker-build.yml'
-  pull_request:
-    branches: [main, develop]
-    paths:
-      - 'core-go/**'
-      - 'whatsapp-engine/**'
-      - 'docker-compose.yml'
 
 env:
   REGISTRY: ghcr.io
@@ -35,7 +29,6 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to GHCR
-        if: github.event_name == 'push'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -46,7 +39,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./core-go
-          push: ${{ github.event_name == 'push' }}
+          push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.GITHUB_USER }}/baileys-core:latest
             ${{ env.REGISTRY }}/${{ env.GITHUB_USER }}/baileys-core:${{ github.sha }}
@@ -68,7 +61,6 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to GHCR
-        if: github.event_name == 'push'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -79,72 +71,9 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./whatsapp-engine
-          push: ${{ github.event_name == 'push' }}
+          push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.GITHUB_USER }}/baileys-engine:latest
             ${{ env.REGISTRY }}/${{ env.GITHUB_USER }}/baileys-engine:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-  validate:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    needs: [build-core, build-engine]
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Create .env file
-        run: |
-          cp .env.example .env 2>/dev/null || cat > .env << 'EOF'
-          NODE_ENV=production
-          POSTGRES_DB=wa_saas
-          POSTGRES_USER=wa_user
-          POSTGRES_PASSWORD=wa_pass
-          REDIS_URL=redis://redis:6379
-          ENGINE_PORT=8090
-          HTTP_PORT=8080
-          INTERNAL_API_KEY=test-api-key-12345
-          WA_EVENTS_CHANNEL=wa.events.v1
-          SESSION_STORE_PATH=/app/data/sessions
-          EOF
-
-      - name: Validate docker-compose.yml
-        run: docker compose config > /dev/null && echo "✓ docker-compose.yml is valid"
-
-      - name: Build services locally
-        run: docker compose build --no-cache
-
-      - name: Test service startup
-        run: |
-          docker compose up -d
-          sleep 20
-
-          # Check container status
-          echo "=== Container Status ==="
-          docker compose ps
-
-          # Show all logs
-          echo "=== Core API logs ==="
-          docker compose logs api-core-go || true
-
-          echo "=== Engine logs ==="
-          docker compose logs whatsapp-engine || true
-
-          echo "=== Redis logs ==="
-          docker compose logs redis || true
-
-          # Test endpoints with verbose output
-          echo "=== Testing Core API ==="
-          curl -v http://localhost:8080/healthz || true
-
-          echo "=== Testing Engine ==="
-          curl -v http://localhost:8090/healthz || true
-
-          # Final healthcheck
-          docker compose ps
-
-      - name: Cleanup
-        if: always()
-        run: docker compose down -v
