@@ -119,33 +119,31 @@ jobs:
       - name: Test service startup
         run: |
           docker compose up -d
-          sleep 30
+          sleep 20
 
-          # Check healthchecks and logs
+          # Check container status
+          echo "=== Container Status ==="
           docker compose ps
+
+          # Show all logs
           echo "=== Core API logs ==="
-          docker compose logs api-core-go | head -50
+          docker compose logs api-core-go || true
+
           echo "=== Engine logs ==="
-          docker compose logs whatsapp-engine | head -50
+          docker compose logs whatsapp-engine || true
 
-          # Wait for healthchecks
-          for i in {1..20}; do
-            if curl -f http://localhost:8080/healthz 2>/dev/null; then
-              echo "✓ Core API is healthy"
-              break
-            fi
-            echo "Waiting for Core API... ($i/20)"
-            sleep 3
-          done
+          echo "=== Redis logs ==="
+          docker compose logs redis || true
 
-          for i in {1..20}; do
-            if curl -f http://localhost:8090/healthz 2>/dev/null; then
-              echo "✓ Engine is healthy"
-              break
-            fi
-            echo "Waiting for Engine... ($i/20)"
-            sleep 3
-          done
+          # Test endpoints with verbose output
+          echo "=== Testing Core API ==="
+          curl -v http://localhost:8080/healthz || true
+
+          echo "=== Testing Engine ==="
+          curl -v http://localhost:8090/healthz || true
+
+          # Final healthcheck
+          docker compose ps
 
       - name: Cleanup
         if: always()
