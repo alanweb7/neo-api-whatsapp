@@ -236,6 +236,94 @@ curl -X POST https://zap-api.wesenderbrasil.com.br/api/v1/messages/text \
 
 ---
 
+## 🔐 Métodos de Autenticação
+
+A API Baileys suporta **3 métodos de autenticação** diferentes dependendo da rota:
+
+### **1️⃣ JWT (Access Token)**
+Usado na maioria das rotas protegidas. O token expira automaticamente.
+
+**Header:**
+```
+Authorization: Bearer SEU_ACCESS_TOKEN
+```
+
+**Exemplo:**
+```bash
+curl -X GET https://zap-api.wesenderbrasil.com.br/api/v1/sessions \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+```
+
+### **2️⃣ API Key**
+Sem expiração. Use para integrações de longa duração.
+
+**Headers aceitos:**
+```
+X-API-Key: sua-api-key-aqui
+```
+ou
+```
+api-key: sua-api-key-aqui
+```
+
+**Exemplo:**
+```bash
+curl -X GET https://zap-api.wesenderbrasil.com.br/api/v1/sessions \
+  -H "X-API-Key: 065e8658-9f0d-44a4-a1f0-12f599019ebd"
+```
+
+### **3️⃣ INTERNAL_API_KEY (Para Criar Sessões)**
+Chave interna para criar novas sessões. Não requer usuário autenticado.
+
+**Headers aceitos:**
+```
+X-Internal-Key: INTERNAL_API_KEY_VALUE
+```
+ou
+```
+api-key: INTERNAL_API_KEY_VALUE
+```
+
+**Exemplo:**
+```bash
+curl -X POST https://zap-api.wesenderbrasil.com.br/api/v1/sessions \
+  -H "X-Internal-Key: changeme123456789012345" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Minha Sessão"
+  }'
+```
+
+### **4️⃣ Engine Session ID (Para Iniciar Sessão)**
+Use o `engine_session_id` para iniciar uma sessão sem expiração de token.
+
+**Header:**
+```
+Authorization: Bearer SEU_ACCESS_TOKEN
+X-Engine-Session-ID: ID_DA_SESSAO
+```
+
+**Exemplo:**
+```bash
+curl -X POST https://zap-api.wesenderbrasil.com.br/api/v1/sessions/550e8400-e29b-41d4-a716-446655440000/start \
+  -H "Authorization: Bearer SEU_ACCESS_TOKEN" \
+  -H "X-Engine-Session-ID: 550e8400-e29b-41d4-a716-446655440000"
+```
+
+---
+
+## 📍 Quais rotas usam qual autenticação?
+
+| Rota | Método | Autenticação | Header |
+|------|--------|--------------|--------|
+| POST /sessions | **Criar** | INTERNAL_API_KEY | `X-Internal-Key` |
+| POST /sessions/:id/start | **Iniciar** | JWT + Engine Session | `Authorization` + `X-Engine-Session-ID` |
+| GET /sessions | **Listar** | JWT ou API Key | `Authorization` ou `X-API-Key` |
+| GET /sessions/:id | **Obter** | JWT ou API Key | `Authorization` ou `X-API-Key` |
+| POST /messages/text | **Enviar** | JWT ou API Key | `Authorization` ou `X-API-Key` |
+
+---
+
 ## 🔍 Obter QR Code Later
 
 Se o QR Code expirou, você pode obter um novo:
