@@ -80,7 +80,7 @@ func main() {
 	messageController := controllers.NewMessageController(messageSvc)
 	webhookController := controllers.NewWebhookController(webhookSvc)
 
-	r := routes.Build(tokenSvc, apiKeyRepo, routes.Controllers{
+	r := routes.Build(tokenSvc, apiKeyRepo, sessionRepo, cfg.InternalAPIKey, routes.Controllers{
 		Auth:    authController,
 		Tenant:  tenantController,
 		User:    userController,

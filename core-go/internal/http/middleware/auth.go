@@ -82,3 +82,73 @@ func hashAPIKey(key string) string {
 	h := sha256.Sum256([]byte(key))
 	return hex.EncodeToString(h[:])
 }
+
+func InternalKey(internalAPIKey string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		key := c.GetHeader("X-Internal-Key")
+		if key == "" {
+			key = c.GetHeader("api-key")
+		}
+
+		if key == "" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing internal api key"})
+			return
+		}
+
+		if key != internalAPIKey {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid internal api key"})
+			return
+		}
+
+		c.Set("auth_type", "internal_key")
+		c.Next()
+	}
+}
+
+func EngineSessionAuth(sessionRepo *repository.SessionRepository) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		tenantID, ok := c.Get("tenant_id")
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "tenant_id not found in context"})
+			return
+		}
+
+		engineSessionID := c.GetHeader("X-Engine-Session-ID")
+		sessionIdParam := c.Param("sessionId")
+
+		if engineSessionID == "" && sessionIdParam == "" {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "missing session id"})
+			return
+		}
+
+		var sessionID string
+		if engineSessionID != "" {
+			sessionID = engineSessionID
+		} else {
+			sessionID = sessionIdParam
+		}
+
+		parsedSessionID, err := uuid.Parse(sessionID)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid session id format"})
+			return
+		}
+
+		parsedTenantID, ok := tenantID.(uuid.UUID)
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "invalid tenant id type"})
+			return
+		}
+
+		session, err := sessionRepo.GetByID(c.Request.Context(), parsedTenantID, parsedSessionID)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "session not found"})
+			return
+		}
+
+		c.Set("session_id", session.ID)
+		c.Set("engine_session_id", session.EngineSessionID)
+		c.Set("auth_type", "engine_session")
+		c.Next()
+	}
+}

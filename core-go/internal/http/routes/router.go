@@ -20,7 +20,7 @@ type Controllers struct {
 	Webhook *controllers.WebhookController
 }
 
-func Build(tokens *service.TokenService, apiKeyRepo *repository.APIKeyRepository, c Controllers) *gin.Engine {
+func Build(tokens *service.TokenService, apiKeyRepo *repository.APIKeyRepository, sessionRepo *repository.SessionRepository, internalAPIKey string, c Controllers) *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Recovery())
 	r.Use(middleware.RequestID())
@@ -36,21 +36,35 @@ func Build(tokens *service.TokenService, apiKeyRepo *repository.APIKeyRepository
 		auth.POST("/refresh", c.Auth.Refresh)
 		auth.GET("/me", middleware.Auth(tokens), c.Auth.Me)
 
-		// Rotas que suportam JWT ou API Key (sem validação de expiração com API Key)
-		// DEFINIR PRIMEIRO para ter prioridade
+		// Rotas com INTERNAL_API_KEY
+		internal := v1.Group("")
+		internal.Use(middleware.InternalKey(internalAPIKey))
+		{
+			internal.POST("/sessions", c.Session.Create)
+		}
+
+		// Rotas que suportam engine_session_id
+		engineSession := v1.Group("")
+		engineSession.Use(middleware.Auth(tokens))
+		engineSession.Use(middleware.EngineSessionAuth(sessionRepo))
+		{
+			engineSession.POST("/sessions/:sessionId/start", c.Session.Start)
+		}
+
+		// Rotas que suportam JWT ou API Key
 		apiOrJwt := v1.Group("")
 		apiOrJwt.Use(middleware.AuthOrAPIKey(tokens, apiKeyRepo))
 		{
-			apiOrJwt.POST("/sessions/:sessionId/start", c.Session.Start)
+			// Rotas que podem ser acessadas com API Key
 		}
 
 		protected := v1.Group("")
 		protected.Use(middleware.Auth(tokens))
 		{
-			protected.POST("/tenants", c.Tenant.Create)
 			protected.GET("/tenants", c.Tenant.List)
 			protected.GET("/tenants/:tenantId", c.Tenant.Get)
 			protected.PUT("/tenants/:tenantId", c.Tenant.Update)
+			protected.POST("/tenants", c.Tenant.Create)
 
 			protected.POST("/users", c.User.Create)
 			protected.GET("/users", c.User.List)
@@ -60,7 +74,6 @@ func Build(tokens *service.TokenService, apiKeyRepo *repository.APIKeyRepository
 			protected.GET("/api-keys", c.APIKey.List)
 			protected.POST("/api-keys/:apiKeyId/revoke", c.APIKey.Revoke)
 
-			protected.POST("/sessions", c.Session.Create)
 			protected.GET("/sessions", c.Session.List)
 			protected.GET("/sessions/:sessionId", c.Session.Get)
 			protected.GET("/sessions/:sessionId/qr", c.Session.QR)
