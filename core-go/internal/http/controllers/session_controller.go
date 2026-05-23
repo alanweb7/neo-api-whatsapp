@@ -16,15 +16,28 @@ func NewSessionController(service *service.SessionService) *SessionController {
 }
 
 func (h *SessionController) Create(c *gin.Context) {
-	tenantID, ok := tenantIDFromCtx(c)
-	if !ok {
-		return
-	}
 	var req dto.CreateSessionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+	var tenantID uuid.UUID
+	if req.TenantID != "" {
+		var err error
+		tenantID, err = uuid.Parse(req.TenantID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid tenant_id format"})
+			return
+		}
+	} else {
+		ctxTenant, ok := tenantIDFromCtx(c)
+		if !ok {
+			return
+		}
+		tenantID = ctxTenant
+	}
+
 	session, err := h.service.Create(c.Request.Context(), tenantID, req.Name)
 	if err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})

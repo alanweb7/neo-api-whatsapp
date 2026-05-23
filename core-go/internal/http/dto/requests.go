@@ -45,7 +45,8 @@ type CreateAPIKeyRequest struct {
 }
 
 type CreateSessionRequest struct {
-	Name string `json:"name" binding:"required,min=2,max=120"`
+	Name     string `json:"name" binding:"required,min=2,max=120"`
+	TenantID string `json:"tenant_id" binding:"omitempty,uuid"`
 }
 
 type SendTextRequest struct {
