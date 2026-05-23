@@ -273,7 +273,7 @@ curl -X GET https://zap-api.wesenderbrasil.com.br/api/v1/sessions \
 ```
 
 ### **3️⃣ INTERNAL_API_KEY (Para Criar Sessões)**
-Chave interna para criar novas sessões. Não requer usuário autenticado.
+Chave interna para criar novas sessões. Não requer usuário autenticado, mas precisa do `tenant_id`.
 
 **Headers aceitos:**
 ```
@@ -284,15 +284,26 @@ ou
 api-key: INTERNAL_API_KEY_VALUE
 ```
 
+**Body (obrigatório fornecer tenant_id):**
+```json
+{
+  "name": "Nome da Sessão",
+  "tenant_id": "uuid-do-tenant"
+}
+```
+
 **Exemplo:**
 ```bash
 curl -X POST https://zap-api.wesenderbrasil.com.br/api/v1/sessions \
   -H "X-Internal-Key: changeme123456789012345" \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "Minha Sessão"
+    "name": "WhatsApp Business",
+    "tenant_id": "550e8400-e29b-41d4-a716-446655440000"
   }'
 ```
+
+**⚠️ Importante:** Quando criando com `INTERNAL_API_KEY`, você **deve** fornecer o `tenant_id` no body!
 
 ### **4️⃣ Engine Session ID (Para Iniciar Sessão)**
 Use o `engine_session_id` para iniciar uma sessão sem expiração de token.
