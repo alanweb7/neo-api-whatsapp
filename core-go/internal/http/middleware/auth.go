@@ -159,35 +159,73 @@ func EngineSessionAuth(sessionRepo *repository.SessionRepository) gin.HandlerFun
 	}
 }
 
-func EngineSessionKeyAuth(sessionRepo *repository.SessionRepository) gin.HandlerFunc {
+func AuthOrEngineSession(tokens *service.TokenService, sessionRepo *repository.SessionRepository) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// Try engine_session_id via api-key first
 		apiKey := c.GetHeader("api-key")
 		if apiKey == "" {
 			apiKey = c.GetHeader("X-api-key")
 		}
 
-		if apiKey == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing api-key or engine session id"})
+		if apiKey != "" {
+			session, err := sessionRepo.GetByEngineSessionID(c.Request.Context(), apiKey)
+			if err == nil {
+				c.Set("tenant_id", session.TenantID)
+				c.Set("session_id", session.ID)
+				c.Set("engine_session_id", session.EngineSessionID)
+				c.Set("auth_type", "engine_session_key")
+				c.Next()
+				return
+			}
+		}
+
+		// Fallback to JWT + engine_session_id header
+		auth := c.GetHeader("Authorization")
+		if auth == "" || !strings.HasPrefix(auth, "Bearer ") {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing bearer token or engine session id"})
+			return
+		}
+		token := strings.TrimSpace(strings.TrimPrefix(auth, "Bearer "))
+		claims, err := tokens.ParseAccess(token)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+			return
+		}
+		userID, _ := uuid.Parse(claims.UserID)
+		tenantID, _ := uuid.Parse(claims.TenantID)
+		c.Set("user_id", userID)
+		c.Set("tenant_id", tenantID)
+
+		engineSessionID := c.GetHeader("X-Engine-Session-ID")
+		sessionIdParam := c.Param("sessionId")
+
+		if engineSessionID == "" && sessionIdParam == "" {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "missing session id"})
 			return
 		}
 
-		sessionIdParam := c.Param("sessionId")
-		_, err := uuid.Parse(sessionIdParam)
+		var sessionID string
+		if engineSessionID != "" {
+			sessionID = engineSessionID
+		} else {
+			sessionID = sessionIdParam
+		}
+
+		parsedSessionID, err := uuid.Parse(sessionID)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid session id format"})
 			return
 		}
 
-		session, err := sessionRepo.GetByEngineSessionID(c.Request.Context(), apiKey)
+		session, err := sessionRepo.GetByID(c.Request.Context(), tenantID, parsedSessionID)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid engine session id"})
+			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "session not found"})
 			return
 		}
 
-		c.Set("tenant_id", session.TenantID)
 		c.Set("session_id", session.ID)
 		c.Set("engine_session_id", session.EngineSessionID)
-		c.Set("auth_type", "engine_session_key")
+		c.Set("auth_type", "engine_session")
 		c.Next()
 	}
 }
