@@ -308,7 +308,7 @@ curl -X POST https://zap-api.wesenderbrasil.com.br/api/v1/sessions \
 ### **4️⃣ Engine Session ID (Para Iniciar Sessão)**
 Use o `engine_session_id` para iniciar uma sessão sem expiração de token.
 
-**Header:**
+**Opção A - Com JWT (válido):**
 ```
 Authorization: Bearer SEU_ACCESS_TOKEN
 X-Engine-Session-ID: ID_DA_SESSAO
@@ -321,6 +321,19 @@ curl -X POST https://zap-api.wesenderbrasil.com.br/api/v1/sessions/550e8400-e29b
   -H "X-Engine-Session-ID: 550e8400-e29b-41d4-a716-446655440000"
 ```
 
+**Opção B - Apenas com engine_session_id (sem expiração):**
+```
+api-key: engine_session_id_value
+```
+
+**Exemplo:**
+```bash
+curl -X POST https://zap-api.wesenderbrasil.com.br/api/v1/sessions/550e8400-e29b-41d4-a716-446655440000/start \
+  -H "api-key: 0a746ec3-faa3-4154-be68-e4b56de33400"
+```
+
+⚠️ **Importante:** O `sessionId` no caminho pode ser qualquer valor UUID. O `api-key` header é o que identifica a sessão.
+
 ---
 
 ## 📍 Quais rotas usam qual autenticação?
@@ -328,7 +341,7 @@ curl -X POST https://zap-api.wesenderbrasil.com.br/api/v1/sessions/550e8400-e29b
 | Rota | Método | Autenticação | Header |
 |------|--------|--------------|--------|
 | POST /sessions | **Criar** | INTERNAL_API_KEY | `X-Internal-Key` ou `api-key` |
-| POST /sessions/:id/start | **Iniciar** | JWT + Engine Session | `Authorization` + `X-Engine-Session-ID` |
+| POST /sessions/:id/start | **Iniciar** | JWT + Header OU Engine Session ID | `Authorization` + `X-Engine-Session-ID` OU `api-key` |
 | GET /sessions | **Listar** | JWT ou INTERNAL_API_KEY | `Authorization` ou `X-Internal-Key` |
 | GET /sessions/:id | **Obter** | JWT | `Authorization` |
 | POST /messages/text | **Enviar** | JWT | `Authorization` |
