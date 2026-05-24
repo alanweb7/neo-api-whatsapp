@@ -43,7 +43,14 @@ func Build(tokens *service.TokenService, apiKeyRepo *repository.APIKeyRepository
 			internal.POST("/sessions", c.Session.Create)
 		}
 
-		// Rotas que suportam engine_session_id
+		// Rotas que suportam engine_session_id via api-key header
+		engineSessionKey := v1.Group("")
+		engineSessionKey.Use(middleware.EngineSessionKeyAuth(sessionRepo))
+		{
+			engineSessionKey.POST("/sessions/:sessionId/start", c.Session.Start)
+		}
+
+		// Rotas que suportam JWT + engine_session_id header
 		engineSession := v1.Group("")
 		engineSession.Use(middleware.Auth(tokens))
 		engineSession.Use(middleware.EngineSessionAuth(sessionRepo))

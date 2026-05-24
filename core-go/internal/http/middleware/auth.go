@@ -159,6 +159,39 @@ func EngineSessionAuth(sessionRepo *repository.SessionRepository) gin.HandlerFun
 	}
 }
 
+func EngineSessionKeyAuth(sessionRepo *repository.SessionRepository) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		apiKey := c.GetHeader("api-key")
+		if apiKey == "" {
+			apiKey = c.GetHeader("X-api-key")
+		}
+
+		if apiKey == "" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing api-key or engine session id"})
+			return
+		}
+
+		sessionIdParam := c.Param("sessionId")
+		_, err := uuid.Parse(sessionIdParam)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid session id format"})
+			return
+		}
+
+		session, err := sessionRepo.GetByEngineSessionID(c.Request.Context(), apiKey)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid engine session id"})
+			return
+		}
+
+		c.Set("tenant_id", session.TenantID)
+		c.Set("session_id", session.ID)
+		c.Set("engine_session_id", session.EngineSessionID)
+		c.Set("auth_type", "engine_session_key")
+		c.Next()
+	}
+}
+
 func AuthOrInternalKey(tokens *service.TokenService, internalAPIKey string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Check for INTERNAL_API_KEY in multiple header formats

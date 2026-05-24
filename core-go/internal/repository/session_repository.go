@@ -35,6 +35,15 @@ func (r *SessionRepository) GetByID(ctx context.Context, tenantID, sessionID uui
 	return &s, nil
 }
 
+func (r *SessionRepository) GetByEngineSessionID(ctx context.Context, engineSessionID string) (*domain.WhatsAppSession, error) {
+	var s domain.WhatsAppSession
+	err := r.db.WithContext(ctx).First(&s, "engine_session_id = ?", engineSessionID).Error
+	if err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
+
 func (r *SessionRepository) Delete(ctx context.Context, tenantID, sessionID uuid.UUID) error {
 	return r.db.WithContext(ctx).Where("id = ? and tenant_id = ?", sessionID, tenantID).Delete(&domain.WhatsAppSession{}).Error
 }
