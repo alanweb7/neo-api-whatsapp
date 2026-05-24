@@ -327,11 +327,11 @@ curl -X POST https://zap-api.wesenderbrasil.com.br/api/v1/sessions/550e8400-e29b
 
 | Rota | Método | Autenticação | Header |
 |------|--------|--------------|--------|
-| POST /sessions | **Criar** | INTERNAL_API_KEY | `X-Internal-Key` |
+| POST /sessions | **Criar** | INTERNAL_API_KEY | `X-Internal-Key` ou `api-key` |
 | POST /sessions/:id/start | **Iniciar** | JWT + Engine Session | `Authorization` + `X-Engine-Session-ID` |
-| GET /sessions | **Listar** | JWT ou API Key | `Authorization` ou `X-API-Key` |
-| GET /sessions/:id | **Obter** | JWT ou API Key | `Authorization` ou `X-API-Key` |
-| POST /messages/text | **Enviar** | JWT ou API Key | `Authorization` ou `X-API-Key` |
+| GET /sessions | **Listar** | JWT ou INTERNAL_API_KEY | `Authorization` ou `X-Internal-Key` |
+| GET /sessions/:id | **Obter** | JWT | `Authorization` |
+| POST /messages/text | **Enviar** | JWT | `Authorization` |
 
 ---
 
@@ -349,9 +349,17 @@ curl -X GET https://zap-api.wesenderbrasil.com.br/api/v1/sessions/550e8400-e29b-
 ## 🔄 Gerenciar Sessões
 
 ### **Listar Todas as Sessões**
+
+**Com JWT:**
 ```bash
 curl -X GET https://zap-api.wesenderbrasil.com.br/api/v1/sessions \
   -H "Authorization: Bearer SEU_ACCESS_TOKEN"
+```
+
+**Com INTERNAL_API_KEY:**
+```bash
+curl -X GET https://zap-api.wesenderbrasil.com.br/api/v1/sessions \
+  -H "X-Internal-Key: changeme123456789012345"
 ```
 
 ### **Obter Detalhes de uma Sessão**
