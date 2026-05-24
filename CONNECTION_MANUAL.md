@@ -357,10 +357,25 @@ curl -X GET https://zap-api.wesenderbrasil.com.br/api/v1/sessions \
 ```
 
 **Com INTERNAL_API_KEY:**
+
+Opção A - Header X-Tenant-ID:
 ```bash
 curl -X GET https://zap-api.wesenderbrasil.com.br/api/v1/sessions \
-  -H "X-Internal-Key: changeme123456789012345"
+  -H "api-key: changeme123456789012345" \
+  -H "X-Tenant-ID: 550e8400-e29b-41d4-a716-446655440000"
 ```
+
+Opção B - Query parameter:
+```bash
+curl -X GET "https://zap-api.wesenderbrasil.com.br/api/v1/sessions?tenant_id=550e8400-e29b-41d4-a716-446655440000" \
+  -H "api-key: changeme123456789012345"
+```
+
+**Headers aceitos para INTERNAL_API_KEY:**
+- `X-Internal-Key`
+- `api-key`
+- `X-api-key`
+- `X-API-Key`
 
 ### **Obter Detalhes de uma Sessão**
 ```bash
