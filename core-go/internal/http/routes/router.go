@@ -57,6 +57,19 @@ func Build(tokens *service.TokenService, apiKeyRepo *repository.APIKeyRepository
 			jwtOrInternal.GET("/sessions", c.Session.List)
 		}
 
+		// Rotas que suportam JWT ou API Key
+		jwtOrAPIKey := v1.Group("")
+		jwtOrAPIKey.Use(middleware.AuthOrAPIKey(tokens, apiKeyRepo))
+		{
+			jwtOrAPIKey.POST("/messages/text", c.Message.SendText)
+			jwtOrAPIKey.POST("/messages/image", c.Message.SendImage)
+			jwtOrAPIKey.POST("/messages/document", c.Message.SendDocument)
+			jwtOrAPIKey.POST("/messages/audio", c.Message.SendAudio)
+			jwtOrAPIKey.POST("/messages/buttons", c.Message.SendButtons)
+			jwtOrAPIKey.POST("/messages/carousel", c.Message.SendCarousel)
+			jwtOrAPIKey.GET("/messages/logs", c.Message.ListLogs)
+		}
+
 		// Rotas que suportam JWT
 		protected := v1.Group("")
 		protected.Use(middleware.Auth(tokens))
@@ -80,14 +93,6 @@ func Build(tokens *service.TokenService, apiKeyRepo *repository.APIKeyRepository
 			protected.POST("/sessions/:sessionId/reconnect", c.Session.Reconnect)
 			protected.POST("/sessions/:sessionId/disconnect", c.Session.Disconnect)
 			protected.DELETE("/sessions/:sessionId", c.Session.Remove)
-
-			protected.POST("/messages/text", c.Message.SendText)
-			protected.POST("/messages/image", c.Message.SendImage)
-			protected.POST("/messages/document", c.Message.SendDocument)
-			protected.POST("/messages/audio", c.Message.SendAudio)
-			protected.POST("/messages/buttons", c.Message.SendButtons)
-			protected.POST("/messages/carousel", c.Message.SendCarousel)
-			protected.GET("/messages/logs", c.Message.ListLogs)
 
 			protected.POST("/webhooks", c.Webhook.Create)
 			protected.GET("/webhooks", c.Webhook.List)
