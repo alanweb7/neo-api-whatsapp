@@ -89,6 +89,12 @@ func InternalKey(internalAPIKey string) gin.HandlerFunc {
 		if key == "" {
 			key = c.GetHeader("api-key")
 		}
+		if key == "" {
+			key = c.GetHeader("X-api-key")
+		}
+		if key == "" {
+			key = c.GetHeader("X-API-Key")
+		}
 
 		if key == "" {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing internal api key"})
@@ -155,17 +161,36 @@ func EngineSessionAuth(sessionRepo *repository.SessionRepository) gin.HandlerFun
 
 func AuthOrInternalKey(tokens *service.TokenService, internalAPIKey string) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// Check for INTERNAL_API_KEY in multiple header formats
 		key := c.GetHeader("X-Internal-Key")
 		if key == "" {
 			key = c.GetHeader("api-key")
 		}
+		if key == "" {
+			key = c.GetHeader("X-api-key")
+		}
+		if key == "" {
+			key = c.GetHeader("X-API-Key")
+		}
 
 		if key != "" && key == internalAPIKey {
+			// Extract tenant_id from header or query param
+			tenantIDStr := c.GetHeader("X-Tenant-ID")
+			if tenantIDStr == "" {
+				tenantIDStr = c.Query("tenant_id")
+			}
+			if tenantIDStr != "" {
+				tenantID, err := uuid.Parse(tenantIDStr)
+				if err == nil {
+					c.Set("tenant_id", tenantID)
+				}
+			}
 			c.Set("auth_type", "internal_key")
 			c.Next()
 			return
 		}
 
+		// Fallback to JWT
 		auth := c.GetHeader("Authorization")
 		if auth == "" || !strings.HasPrefix(auth, "Bearer ") {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing bearer token or internal key"})
