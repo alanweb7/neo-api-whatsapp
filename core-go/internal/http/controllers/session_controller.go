@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/alan/baileys-saas/core-go/internal/http/dto"
 	"github.com/alan/baileys-saas/core-go/internal/service"
@@ -77,9 +78,12 @@ func (h *SessionController) Start(c *gin.Context) {
 		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		return
 	}
+
+	time.Sleep(2 * time.Second)
+
 	qr, err := h.service.GetQRCode(c.Request.Context(), tenantID, sid)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{"started": true})
+		c.JSON(http.StatusOK, gin.H{"status": "starting", "message": "QR code will be available shortly"})
 		return
 	}
 	c.JSON(http.StatusOK, qr)
