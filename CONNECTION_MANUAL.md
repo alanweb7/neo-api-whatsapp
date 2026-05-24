@@ -75,33 +75,33 @@ curl -X POST https://zap-api.wesenderbrasil.com.br/api/v1/sessions \
 
 ### **2️⃣ Iniciar a Sessão e Gerar QR Code**
 
-Inicie a sessão para gerar o QR Code.
+Inicie a sessão para gerar o QR Code. **O QR Code é retornado diretamente na resposta!**
 
 **Endpoint:**
 ```
 POST /api/v1/sessions/{sessionId}/start
 ```
 
-**Headers:**
-```
-Authorization: Bearer {ACCESS_TOKEN}
-X-Engine-Session-ID: {OPTIONAL - engine_session_id para priorizar com API Key}
-```
-
-**Opção A: Com sessionId no caminho**
+**Opção A - Com api-key (engine_session_id):**
 ```bash
 curl -X POST https://zap-api.wesenderbrasil.com.br/api/v1/sessions/550e8400-e29b-41d4-a716-446655440000/start \
-  -H "Authorization: Bearer SEU_ACCESS_TOKEN"
+  -H "api-key: d7ff2de8-18fe-4634-897c-1e08f09d42bd"
 ```
 
-**Opção B: Com engine_session_id no header (prioritário)**
+**Opção B - Com X-Engine-Session-ID header:**
 ```bash
-curl -X POST https://zap-api.wesenderbrasil.com.br/api/v1/sessions/any-value/start \
+curl -X POST https://zap-api.wesenderbrasil.com.br/api/v1/sessions/550e8400-e29b-41d4-a716-446655440000/start \
+  -H "X-Engine-Session-ID: d7ff2de8-18fe-4634-897c-1e08f09d42bd"
+```
+
+**Opção C - Com Authorization JWT:**
+```bash
+curl -X POST https://zap-api.wesenderbrasil.com.br/api/v1/sessions/550e8400-e29b-41d4-a716-446655440000/start \
   -H "Authorization: Bearer SEU_ACCESS_TOKEN" \
   -H "X-Engine-Session-ID: 550e8400-e29b-41d4-a716-446655440000"
 ```
 
-**Response (200 OK):**
+**Response (200 OK) - Com QR Code:**
 ```json
 {
   "id": "550e8400-e29b-41d4-a716-446655440000",
@@ -111,7 +111,10 @@ curl -X POST https://zap-api.wesenderbrasil.com.br/api/v1/sessions/any-value/sta
 }
 ```
 
-**💡 O QR Code é uma imagem PNG em base64 que expira em ~60 segundos**
+**⚠️ Importante:** 
+- O QR Code é uma imagem PNG em base64 que expira em ~60 segundos
+- O endpoint aguarda 2 segundos para a engine gerar o QR code
+- Se não conseguir obter o QR code, retorna: `{"status": "starting", "message": "QR code will be available shortly"}`
 
 ---
 
