@@ -161,7 +161,7 @@ func EngineSessionAuth(sessionRepo *repository.SessionRepository) gin.HandlerFun
 
 func AuthOrEngineSession(tokens *service.TokenService, sessionRepo *repository.SessionRepository) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Try engine_session_id via api-key first
+		// Try engine_session_id via api-key header first
 		apiKey := c.GetHeader("api-key")
 		if apiKey == "" {
 			apiKey = c.GetHeader("X-api-key")
@@ -179,7 +179,21 @@ func AuthOrEngineSession(tokens *service.TokenService, sessionRepo *repository.S
 			}
 		}
 
-		// Fallback to JWT + engine_session_id header
+		// Try X-Engine-Session-ID header (without JWT requirement)
+		engineSessionID := c.GetHeader("X-Engine-Session-ID")
+		if engineSessionID != "" {
+			session, err := sessionRepo.GetByEngineSessionID(c.Request.Context(), engineSessionID)
+			if err == nil {
+				c.Set("tenant_id", session.TenantID)
+				c.Set("session_id", session.ID)
+				c.Set("engine_session_id", session.EngineSessionID)
+				c.Set("auth_type", "engine_session_header")
+				c.Next()
+				return
+			}
+		}
+
+		// Fallback to JWT + engine_session_id validation
 		auth := c.GetHeader("Authorization")
 		if auth == "" || !strings.HasPrefix(auth, "Bearer ") {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing bearer token or engine session id"})
@@ -196,7 +210,7 @@ func AuthOrEngineSession(tokens *service.TokenService, sessionRepo *repository.S
 		c.Set("user_id", userID)
 		c.Set("tenant_id", tenantID)
 
-		engineSessionID := c.GetHeader("X-Engine-Session-ID")
+		engineSessionID = c.GetHeader("X-Engine-Session-ID")
 		sessionIdParam := c.Param("sessionId")
 
 		if engineSessionID == "" && sessionIdParam == "" {
