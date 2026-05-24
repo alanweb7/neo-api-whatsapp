@@ -152,3 +152,36 @@ func EngineSessionAuth(sessionRepo *repository.SessionRepository) gin.HandlerFun
 		c.Next()
 	}
 }
+
+func AuthOrInternalKey(tokens *service.TokenService, internalAPIKey string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		key := c.GetHeader("X-Internal-Key")
+		if key == "" {
+			key = c.GetHeader("api-key")
+		}
+
+		if key != "" && key == internalAPIKey {
+			c.Set("auth_type", "internal_key")
+			c.Next()
+			return
+		}
+
+		auth := c.GetHeader("Authorization")
+		if auth == "" || !strings.HasPrefix(auth, "Bearer ") {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing bearer token or internal key"})
+			return
+		}
+		token := strings.TrimSpace(strings.TrimPrefix(auth, "Bearer "))
+		claims, err := tokens.ParseAccess(token)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+			return
+		}
+		userID, _ := uuid.Parse(claims.UserID)
+		tenantID, _ := uuid.Parse(claims.TenantID)
+		c.Set("user_id", userID)
+		c.Set("tenant_id", tenantID)
+		c.Set("auth_type", "jwt")
+		c.Next()
+	}
+}

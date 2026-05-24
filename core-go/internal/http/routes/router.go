@@ -51,13 +51,14 @@ func Build(tokens *service.TokenService, apiKeyRepo *repository.APIKeyRepository
 			engineSession.POST("/sessions/:sessionId/start", c.Session.Start)
 		}
 
-		// Rotas que suportam JWT ou API Key
-		apiOrJwt := v1.Group("")
-		apiOrJwt.Use(middleware.AuthOrAPIKey(tokens, apiKeyRepo))
+		// Rotas que suportam JWT ou INTERNAL_API_KEY
+		jwtOrInternal := v1.Group("")
+		jwtOrInternal.Use(middleware.AuthOrInternalKey(tokens, internalAPIKey))
 		{
-			// Rotas que podem ser acessadas com API Key
+			jwtOrInternal.GET("/sessions", c.Session.List)
 		}
 
+		// Rotas que suportam JWT
 		protected := v1.Group("")
 		protected.Use(middleware.Auth(tokens))
 		{
@@ -74,7 +75,6 @@ func Build(tokens *service.TokenService, apiKeyRepo *repository.APIKeyRepository
 			protected.GET("/api-keys", c.APIKey.List)
 			protected.POST("/api-keys/:apiKeyId/revoke", c.APIKey.Revoke)
 
-			protected.GET("/sessions", c.Session.List)
 			protected.GET("/sessions/:sessionId", c.Session.Get)
 			protected.GET("/sessions/:sessionId/qr", c.Session.QR)
 			protected.GET("/sessions/:sessionId/status", c.Session.Status)
