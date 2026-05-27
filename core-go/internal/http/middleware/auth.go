@@ -244,6 +244,32 @@ func AuthOrEngineSession(tokens *service.TokenService, sessionRepo *repository.S
 	}
 }
 
+func EngineSessionOnly(sessionRepo *repository.SessionRepository) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		engineSessionID := c.GetHeader("api-key")
+		if engineSessionID == "" {
+			engineSessionID = c.GetHeader("X-api-key")
+		}
+
+		if engineSessionID == "" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing engine session id"})
+			return
+		}
+
+		session, err := sessionRepo.GetByEngineSessionID(c.Request.Context(), engineSessionID)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid engine session id"})
+			return
+		}
+
+		c.Set("tenant_id", session.TenantID)
+		c.Set("session_id", session.ID)
+		c.Set("engine_session_id", session.EngineSessionID)
+		c.Set("auth_type", "engine_session_only")
+		c.Next()
+	}
+}
+
 func AuthOrInternalKey(tokens *service.TokenService, internalAPIKey string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Check for INTERNAL_API_KEY in multiple header formats

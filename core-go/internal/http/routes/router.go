@@ -57,17 +57,17 @@ func Build(tokens *service.TokenService, apiKeyRepo *repository.APIKeyRepository
 			jwtOrInternal.GET("/sessions", c.Session.List)
 		}
 
-		// Rotas que suportam JWT ou API Key
-		jwtOrAPIKey := v1.Group("")
-		jwtOrAPIKey.Use(middleware.AuthOrAPIKey(tokens, apiKeyRepo))
+		// Rotas que suportam engine_session_id como api-key
+		engineSessionMessages := v1.Group("")
+		engineSessionMessages.Use(middleware.EngineSessionOnly(sessionRepo))
 		{
-			jwtOrAPIKey.POST("/messages/text", c.Message.SendText)
-			jwtOrAPIKey.POST("/messages/image", c.Message.SendImage)
-			jwtOrAPIKey.POST("/messages/document", c.Message.SendDocument)
-			jwtOrAPIKey.POST("/messages/audio", c.Message.SendAudio)
-			jwtOrAPIKey.POST("/messages/buttons", c.Message.SendButtons)
-			jwtOrAPIKey.POST("/messages/carousel", c.Message.SendCarousel)
-			jwtOrAPIKey.GET("/messages/logs", c.Message.ListLogs)
+			engineSessionMessages.POST("/messages/text", c.Message.SendText)
+			engineSessionMessages.POST("/messages/image", c.Message.SendImage)
+			engineSessionMessages.POST("/messages/document", c.Message.SendDocument)
+			engineSessionMessages.POST("/messages/audio", c.Message.SendAudio)
+			engineSessionMessages.POST("/messages/buttons", c.Message.SendButtons)
+			engineSessionMessages.POST("/messages/carousel", c.Message.SendCarousel)
+			engineSessionMessages.GET("/messages/logs", c.Message.ListLogs)
 		}
 
 		// Rotas que suportam JWT
